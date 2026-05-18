@@ -17,15 +17,19 @@ export function renderNasaTlxScreen() {
 
   const sliderRows = dimensions.map(dim => {
     // Physical demand is pre-set to a low value for computer-based tasks
-    const isPhysical     = dim.id === 'physical';
-    const defaultValue   = isPhysical ? '5' : '50';
-    const disabledAttr   = isPhysical ? 'disabled' : '';
-    const disabledStyle  = isPhysical ? 'opacity:0.6;' : '';
-    const noteHTML       = isPhysical
-      ? `<div style="margin-top:6px; font-size:13px; color:#6b7280; font-style:italic;">
-           Pre-set to a low value — this is a computer-based study with minimal physical demand.
-         </div>`
-      : '';
+    // const isPhysical     = dim.id === 'physical';
+    // const defaultValue   = isPhysical ? '5' : '50';
+    // const disabledAttr   = isPhysical ? 'disabled' : '';
+    // const disabledStyle  = isPhysical ? 'opacity:0.6;' : '';
+    // const noteHTML       = isPhysical
+    //   ? `<div style="margin-top:6px; font-size:13px; color:#6b7280; font-style:italic;">
+    //        Pre-set to a low value — this is a computer-based study with minimal physical demand.
+    //      </div>`
+    //   : '';
+    const defaultValue   = '50';
+    const disabledAttr   = '';
+    const disabledStyle  = '';
+    const noteHTML       = '';
 
     return `
       <div style="margin-bottom:20px; padding:16px; background:#f9fafb; border-radius:8px; border:1px solid #e5e7eb;">

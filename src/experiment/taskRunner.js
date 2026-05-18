@@ -117,7 +117,7 @@ const TASK_DEFINITIONS = {
               ✓ Yes — I found it
             </button>
             <button type="button" class="nav-choice" id="bn-no"
-              onclick="document.getElementById('broken-nav-answer').value='No';document.querySelectorAll('.nav-choice').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');document.getElementById('bn-status').textContent="✓ Selected: No — I could not find it";">
+              onclick="document.getElementById('broken-nav-answer').value='No';document.querySelectorAll('.nav-choice').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');document.getElementById('bn-status').textContent='✓ Selected: No — I could not find it';">
               ✗ No — I could not find it
             </button>
             <button type="button" class="nav-choice" id="bn-gaveup"

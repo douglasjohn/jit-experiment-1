@@ -1,13 +1,9 @@
 import { defineConfig } from 'vite';
 
-export default defineConfig({
-  // ── Base path ──────────────────────────────────────────────────────────────
-  // For local dev and custom domains: keep as '/'.
-  // For GitHub Pages at https://USERNAME.github.io/REPO-NAME/ :
-  //   change to '/REPO-NAME/'   (e.g. '/eye-tracking-experiment/')
-  // For a GitHub user/org page at https://USERNAME.github.io/ :
-  //   keep as '/'
-  base: '/jit-experiment-1/',
+export default defineConfig(({ command }) => ({
+  // For local development the tracker package loads the model from the
+  // origin root at /web/model.json, so dev must use a root base path.
+  base: command === 'serve' ? '/' : '/jit-experiment-1/',
 
   build: {
     outDir:    'dist',
@@ -23,4 +19,4 @@ export default defineConfig({
   //       ├── model.json
   //       └── worker.js   (+ any other tracker assets)
   publicDir: 'public',
-});
+}));

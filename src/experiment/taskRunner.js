@@ -635,7 +635,7 @@ export function initTaskRunner(gazeManager) {
 
     // For ambiguous-form: also capture all af-field values
     if (currentTask.id === 'ambiguous-form') {
-      document.querySelectorAll('#task-stimulus [id^="af-field-"]').forEach(el => {
+      document.querySelectorAll('#task-stimulus input[id^="af-field-"], #task-stimulus select[id^="af-field-"]').forEach(el => {
         fields[el.id] = el.value.trim();
       });
     }
@@ -797,6 +797,28 @@ export function initTaskRunner(gazeManager) {
       
       // Run once on load
       validateAmbiguousForm();
+    }
+
+    
+    // --- Ambiguous Form: Dynamic Submit Button Logic ---
+    if (task.id === 'ambiguous-form') {
+      const submitBtn = document.getElementById('submit-task-btn');
+      const inputs = Array.from(document.querySelectorAll('#task-stimulus input, #task-stimulus select'));
+      
+      const checkCompletion = () => {
+        const allFilled = inputs.every(i => i.value.trim() !== '');
+        submitBtn.disabled = !allFilled;
+        submitBtn.style.opacity = allFilled ? '1' : '0.5';
+        submitBtn.style.cursor = allFilled ? 'pointer' : 'not-allowed';
+      };
+
+      inputs.forEach(inp => {
+        inp.addEventListener('input', checkCompletion);
+        inp.addEventListener('change', checkCompletion);
+      });
+      
+      // Initial check
+      checkCompletion();
     }
 
     document.getElementById('submit-task-btn').onclick = (e) => {

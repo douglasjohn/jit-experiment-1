@@ -11,7 +11,6 @@ export async function initializeTracker(videoElementId) {
 
   tempStream.getTracks().forEach(t => t.stop());
 
-  // Fetch the model WITH the base URL applied
   const modelResponse = await fetch(
     `${import.meta.env.BASE_URL}web/model.json`
   );
@@ -22,15 +21,9 @@ export async function initializeTracker(videoElementId) {
     );
   }
 
-  const modelJson = await modelResponse.json();
-
   const webcamClient = new WebcamClient(videoElementId);
 
-  // Pass the model JSON directly to avoid the library re-fetching it
-  const tracker = new WebEyeTrackProxy(webcamClient, {
-    model: modelJson,
-    workerPath: `${import.meta.env.BASE_URL}web/worker.js`
-  });
+  const tracker = new WebEyeTrackProxy(webcamClient);
 
   return tracker;
 }

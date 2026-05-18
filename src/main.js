@@ -1,5 +1,8 @@
 import './style.css';
 
+// Add this before creating WebEyeTrackProxy
+window.WEB_EYETRACK_BASE = import.meta.env.BASE_URL;
+
 import { renderAppShell } from './UI/appShell';
 import { setStatus } from './UI/status';
 import { initConsentScreen } from './UI/screens/consent';

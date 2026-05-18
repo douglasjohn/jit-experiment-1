@@ -117,8 +117,8 @@ const TASK_DEFINITIONS = {
               ✓ Yes — I found it
             </button>
             <button type="button" class="nav-choice" id="bn-no"
-              onclick="document.getElementById('broken-nav-answer').value='No';document.querySelectorAll('.nav-choice').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');document.getElementById('bn-status').textContent='✓ Selected: No — I couldn\'t find it';">
-              ✗ No — I couldn't find it
+              onclick="document.getElementById('broken-nav-answer').value='No';document.querySelectorAll('.nav-choice').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');document.getElementById('bn-status').textContent="✓ Selected: No — I could not find it";">
+              ✗ No — I could not find it
             </button>
             <button type="button" class="nav-choice" id="bn-gaveup"
               onclick="document.getElementById('broken-nav-answer').value='I gave up';document.querySelectorAll('.nav-choice').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');document.getElementById('bn-status').textContent='✓ Selected: I gave up';">
@@ -565,10 +565,10 @@ export function initTaskRunner(gazeManager) {
    * (c) Radio groups present in the stimulus
    * (d) All visible form inputs for ambiguous-form
    */
-  function _validateResponses() {
+    function _validateResponses() {
     const msgs = new Set();
 
-    // (a) Rendered response form inputs
+    // (a) Rendered response form inputs (text/textarea)
     const form = document.getElementById('task-response-form');
     if (form) {
       form.querySelectorAll('input[type="text"], textarea').forEach(inp => {
@@ -578,7 +578,7 @@ export function initTaskRunner(gazeManager) {
       });
     }
 
-    // (b) Hidden inputs in stimulus
+    // (b) Hidden inputs in stimulus (e.g. broken-nav)
     if (currentTask) {
       currentTask.questions.filter(q => q.type === 'hidden').forEach(q => {
         const inp = document.getElementById(q.id);
@@ -600,10 +600,10 @@ export function initTaskRunner(gazeManager) {
     });
 
     // (d) Ambiguous-form: all visible inputs must be filled
+    // (Note: This is redundant now that we disable the button, but kept as a backup)
     if (currentTask?.id === 'ambiguous-form') {
-      const allFilled = Array.from(
-        document.querySelectorAll('#task-stimulus input[type="text"]:not([disabled]), #task-stimulus select:not([disabled])')
-      ).every(inp => inp.value.trim() !== '');
+      const inputs = Array.from(document.querySelectorAll('#task-stimulus input[type="text"]:not([disabled]), #task-stimulus select:not([disabled])'));
+      const allFilled = inputs.every(inp => inp.value.trim() !== '');
       if (!allFilled) msgs.add('Please fill in all form fields before submitting.');
     }
 
@@ -742,6 +742,62 @@ export function initTaskRunner(gazeManager) {
           Submit Response →
         </button>
       </div>`;
+
+
+    // Real-time validation for ambiguous-form: enable/disable Submit button
+    if (task.id === 'ambiguous-form') {
+      const btn = document.getElementById('submit-task-btn');
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      btn.style.cursor = 'not-allowed';
+
+      const checkFilled = () => {
+        const inputs = Array.from(document.querySelectorAll('#task-stimulus input[type="text"]:not([disabled]), #task-stimulus select:not([disabled])'));
+        const allFilled = inputs.every(inp => inp.value.trim() !== '');
+        btn.disabled = !allFilled;
+        btn.style.opacity = allFilled ? '1' : '0.5';
+        btn.style.cursor = allFilled ? 'pointer' : 'not-allowed';
+      };
+
+      document.querySelectorAll('#task-stimulus input, #task-stimulus select').forEach(el => {
+        el.addEventListener('input', checkFilled);
+        el.addEventListener('change', checkFilled);
+      });
+      // Initial check (in case of browser autofill)
+      checkFilled();
+    }
+
+
+    // Disable submit button by default for ambiguous-form and listen to changes
+    if (task.id === 'ambiguous-form') {
+      const submitBtn = document.getElementById('submit-task-btn');
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.5';
+      submitBtn.style.cursor = 'not-allowed';
+
+      const validateAmbiguousForm = () => {
+        const inputs = Array.from(document.querySelectorAll('#task-stimulus input[type="text"]:not([disabled]), #task-stimulus select:not([disabled])'));
+        const allFilled = inputs.every(inp => inp.value.trim() !== '');
+        
+        if (allFilled) {
+          submitBtn.disabled = false;
+          submitBtn.style.opacity = '1';
+          submitBtn.style.cursor = 'pointer';
+        } else {
+          submitBtn.disabled = true;
+          submitBtn.style.opacity = '0.5';
+          submitBtn.style.cursor = 'not-allowed';
+        }
+      };
+
+      document.querySelectorAll('#task-stimulus input, #task-stimulus select').forEach(el => {
+        el.addEventListener('input', validateAmbiguousForm);
+        el.addEventListener('change', validateAmbiguousForm);
+      });
+      
+      // Run once on load
+      validateAmbiguousForm();
+    }
 
     document.getElementById('submit-task-btn').onclick = (e) => {
       e.preventDefault();

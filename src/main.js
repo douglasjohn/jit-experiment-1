@@ -1,7 +1,13 @@
 import './style.css';
 
-// Add this before creating WebEyeTrackProxy
-window.WEB_EYETRACK_BASE = import.meta.env.BASE_URL;
+// Register Service Worker FIRST to intercept web/ requests
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    console.log('✓ Service Worker registered for request interception');
+  }).catch(err => {
+    console.warn('Service Worker registration failed:', err);
+  });
+}
 
 import { renderAppShell } from './UI/appShell';
 import { setStatus } from './UI/status';

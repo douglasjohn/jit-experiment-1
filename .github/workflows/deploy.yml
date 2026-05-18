@@ -1,0 +1,65 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]          # change to 'master' if that is your default branch
+  workflow_dispatch:           # allows manual triggering from the GitHub UI
+
+permissions:
+  contents: read
+  pages:    write
+  id-token: write
+
+concurrency:
+  group:              pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url:  ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── WebEyeTrack model files ──────────────────────────────────────────────
+      # If your model files are committed to the repo under public/web/, this
+      # step does nothing (they are already there).
+      # If they are stored elsewhere (e.g. Git LFS, a release asset, or a
+      # private bucket), add a download step here before the build step.
+      # Example using a GitHub release asset:
+      #   - name: Download tracker assets
+      #     run: |
+      #       mkdir -p public/web
+      #       curl -L https://github.com/YOUR_ORG/webeyetrack/releases/latest/download/web.zip -o web.zip
+      #       unzip web.zip -d public/
+      # ────────────────────────────────────────────────────────────────────────
+
+      - name: Build
+        run: npm run build
+        env:
+          # Vite inlines these at build time if you reference them via import.meta.env
+          # Add any public (non-secret) env vars here.
+          # VITE_EXAMPLE: 'value'
+          NODE_ENV: production
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id:   deployment
+        uses: actions/deploy-pages@v4

@@ -209,7 +209,12 @@ const TASK_DEFINITIONS = {
         <div style="font-family:system-ui,sans-serif;color:#111827;border:1px solid #d1d5db;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.12);">
           <div style="padding:28px;background:#fff;">
             <h2 style="margin:0 0 8px;font-size:28px;">Create your account</h2>
-            <p style="margin:0 0 24px;color:#475569;line-height:1.7;">Complete all fields below.</p>
+            <p style="margin:0 0 12px;color:#475569;line-height:1.7;">
+              Fill out the form to the best of your ability and submit when you feel comfortable.
+            </p>
+            <p style="margin:0 0 24px;color:#475569;line-height:1.7;">
+              Complete all fields below.
+            </p>
             <div id="af-form" style="display:grid;gap:18px;">${rows}</div>
           </div>
         </div>`;
@@ -457,7 +462,7 @@ const TASK_DEFINITIONS = {
     questions: [
       { id: 'if-q1', prompt: 'What security type did you select in the Network tab?', type: 'text' },
       { id: 'if-q2', prompt: 'What DNS server address did you enter?', type: 'text' },
-      { id: 'if-q3', prompt: 'Did you click "Save Changes"? (yes / no)', type: 'text' },
+      { id: 'if-q3', prompt: 'Did you click "Save Changes"?', type: 'checkbox' },
     ],
   },
 
@@ -465,13 +470,12 @@ const TASK_DEFINITIONS = {
   'reading-inference': {
     id:    'reading-inference',
     type:  'reading',
-    title: 'Pharmacokinetics: Drug Absorption & Metabolism',
-    instructions: 'Read the passage carefully, then answer all comprehension and inference questions.',
+    title: 'Drug Absorption & Metabolism',
+    instructions: 'Read the passage, then answer the questions.',
     stimulus_html: `
       <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#f7fee7;font-family:system-ui,sans-serif;max-width:800px;line-height:1.8;">
         <div data-aoi="ri-p1" style="margin-bottom:16px;"><p style="margin:0;color:#1f2937;"><strong>Drug absorption</strong> occurs when a pharmaceutical compound enters the bloodstream from its site of administration. For oral medications, this process begins in the gastrointestinal tract where the drug dissolves and crosses the intestinal epithelium through passive diffusion, active transport, or carrier-mediated mechanisms. The rate and extent of absorption depend on drug solubility, pH stability, and intestinal surface area. Factors such as food intake, gastric pH, and individual genetic variations significantly influence bioavailability — the fraction of the administered dose that reaches systemic circulation.</p></div>
         <div data-aoi="ri-p2" style="margin-bottom:16px;"><p style="margin:0;color:#1f2937;"><strong>First-pass metabolism</strong> refers to the hepatic degradation of a drug after absorption but before it reaches systemic circulation. When a drug is absorbed from the gastrointestinal tract, it enters the portal blood supply and passes through the liver before reaching general circulation. The hepatic cytochrome P450 enzyme system metabolises many drugs, potentially reducing their bioavailability significantly. Some drugs undergo extensive first-pass metabolism (60–90% reduction), necessitating alternative routes such as sublingual or transdermal application.</p></div>
-        <div data-aoi="ri-p3" style="margin-bottom:20px;"><p style="margin:0;color:#1f2937;"><strong>Individual variation</strong> in drug metabolism is largely determined by genetic polymorphisms in the cytochrome P450 gene family, particularly CYP2D6 and CYP3A4. Subjects are classified as poor, intermediate, normal (extensive), or ultra-rapid metabolisers based on their enzymatic activity. Elderly patients and those with hepatic or renal impairment typically experience reduced drug clearance, requiring dose adjustment to prevent toxicity. Conversely, ultra-rapid metabolisers may need higher doses to achieve therapeutic effect.</p></div>
         <div data-aoi="ri-table" style="margin:20px 0;padding:16px;background:#dcfce7;border-radius:8px;border:1px solid #86efac;overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead><tr style="background:#bbf7d0;border-bottom:2px solid #6ee7b7;"><th style="padding:10px;text-align:left;color:#15803d;">Patient Type</th><th style="padding:10px;color:#15803d;">Enzymatic Activity</th><th style="padding:10px;color:#15803d;">Dose Adjustment</th><th style="padding:10px;color:#15803d;">Risk</th></tr></thead>
@@ -484,7 +488,7 @@ const TASK_DEFINITIONS = {
           </table>
         </div>
       </div>`,
-    aois: [{ id: 'ri-p1' }, { id: 'ri-p2' }, { id: 'ri-p3' }, { id: 'ri-table' }],
+    aois: [{ id: 'ri-p1' }, { id: 'ri-p2' }, { id: 'ri-table' }],
     questions: [
       { id: 'ri-q1', prompt: 'Which enzyme system is primarily responsible for hepatic drug metabolism?', type: 'text' },
       { id: 'ri-q2', prompt: 'Which patient population should most likely receive a dose adjustment, and why?', type: 'textarea' },
@@ -575,6 +579,13 @@ export function initTaskRunner(gazeManager) {
           msgs.add('Please answer all questions before submitting.');
         }
       });
+
+      // Checkboxes must be checked to count as answered
+      form.querySelectorAll('input[type="checkbox"]').forEach(inp => {
+        if (!inp.disabled && !inp.checked) {
+          msgs.add('Please answer all questions before submitting.');
+        }
+      });
     }
 
     // (b) Hidden inputs in stimulus
@@ -598,12 +609,18 @@ export function initTaskRunner(gazeManager) {
       }
     });
 
-    // (d) Ambiguous-form: all visible inputs must be filled
+    // (d) Ambiguous-form: submission allowed once every field has some value.
+    // Vanity error messages are intentionally ignored.
     if (currentTask?.id === 'ambiguous-form') {
       const allFilled = Array.from(
-        document.querySelectorAll('#task-stimulus input[type="text"]:not([disabled]), #task-stimulus select:not([disabled])')
+        document.querySelectorAll(
+          '#task-stimulus input[type="text"]:not([disabled]), #task-stimulus select:not([disabled])'
+        )
       ).every(inp => inp.value.trim() !== '');
-      if (!allFilled) msgs.add('Please fill in all form fields before submitting.');
+
+      if (!allFilled) {
+        msgs.add('Please fill in all form fields before submitting.');
+      }
     }
 
     return [...msgs];
@@ -622,7 +639,14 @@ export function initTaskRunner(gazeManager) {
     // Named question inputs
     const fields = (currentTask.questions || []).reduce((acc, q) => {
       const el = document.getElementById(q.id);
-      acc[q.id] = el ? el.value.trim() : null;
+
+      if (!el) {
+        acc[q.id] = null;
+      } else if (el.type === 'checkbox') {
+        acc[q.id] = el.checked;
+      } else {
+        acc[q.id] = el.value.trim();
+      }
       return acc;
     }, {});
 
@@ -679,6 +703,15 @@ export function initTaskRunner(gazeManager) {
     const questionsHtml = (task.questions || [])
       .filter(q => q.type !== 'hidden')
       .map(q => {
+        if (q.type === 'checkbox') {
+          return `
+            <div style="margin-bottom:18px;">
+              <label style="display:flex;align-items:center;gap:10px;color:#111827;font-weight:600;cursor:pointer;">
+                <input id="${q.id}" type="checkbox" style="width:18px;height:18px;" />
+                ${q.prompt}
+              </label>
+            </div>`;
+        }
         if (q.type === 'textarea') {
           return `<div style="margin-bottom:18px;">
             <label for="${q.id}" style="display:block;margin-bottom:6px;color:#111827;font-weight:600;">${q.prompt}</label>

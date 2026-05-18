@@ -90,7 +90,7 @@ const TASK_DEFINITIONS = {
           <div class="shop-footer">
             <div class="footer-dropdown" id="bn-about-dropdown">
               <button type="button" class="footer-text-link" id="bn-about-link"
-                onclick="document.getElementById('bn-about-dropdown').classList.toggle('open');return false;">about ▾</button>
+                onclick="document.getElementById('bn-about-dropdown').classList.toggle('open');return false;">about</button>
               <div class="footer-dropdown-content">
                 <button type="button" class="footer-dropdown-item"
                   onclick="document.getElementById('bn-aboutus-popup').style.display='flex';document.getElementById('bn-about-dropdown').classList.remove('open');return false;">About us</button>
@@ -117,7 +117,12 @@ const TASK_DEFINITIONS = {
               ✓ Yes — I found it
             </button>
             <button type="button" class="nav-choice" id="bn-no"
-              onclick="document.getElementById('broken-nav-answer').value='No';document.querySelectorAll('.nav-choice').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');document.getElementById('bn-status').textContent='✓ Selected: No — I couldn\'t find it';">
+              onclick="
+                document.getElementById('broken-nav-answer').value='No';
+                document.querySelectorAll('.nav-choice').forEach(b=>b.classList.remove('selected'));
+                this.classList.add('selected');
+                document.getElementById('bn-status').textContent = "✓ Selected: No — I couldn't find it";
+              ">
               ✗ No — I couldn't find it
             </button>
             <button type="button" class="nav-choice" id="bn-gaveup"

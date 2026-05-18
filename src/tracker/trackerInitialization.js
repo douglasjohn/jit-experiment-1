@@ -13,13 +13,24 @@ export async function initializeTracker(videoElementId) {
 
   const baseUrl = import.meta.env.BASE_URL;
 
-  const webcamClient = new WebcamClient(videoElementId);
+  // Intercept fetch to redirect /web/ requests to the correct base path
+  const originalFetch = window.fetch;
+  window.fetch = function(...args) {
+    const url = args[0];
+    
+    // If it's a web/ request without the base path, prepend it
+    if (typeof url === 'string' && url.startsWith('/web/')) {
+      args[0] = baseUrl + url.slice(1); // Remove leading slash and prepend baseUrl
+    }
+    
+    return originalFetch.apply(this, args);
+  };
 
-  // Pass explicit paths for both model and worker to the proxy
-  const tracker = new WebEyeTrackProxy(webcamClient, {
-    modelPath: `${baseUrl}web/model.json`,
-    workerPath: `${baseUrl}web/worker.js`
-  });
+  const webcamClient = new WebcamClient(videoElementId);
+  const tracker = new WebEyeTrackProxy(webcamClient);
+
+  // Restore original fetch after initialization
+  window.fetch = originalFetch;
 
   return tracker;
 }

@@ -7,7 +7,7 @@ export default defineConfig({
   //   change to '/REPO-NAME/'   (e.g. '/eye-tracking-experiment/')
   // For a GitHub user/org page at https://USERNAME.github.io/ :
   //   keep as '/'
-  base: '/',
+  base: '/jit-experiment-1/',
 
   build: {
     outDir:    'dist',

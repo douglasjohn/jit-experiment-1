@@ -18,6 +18,12 @@ export class CalibrationSystem {
     this._dotTimer = null;
     this._finished = false;
 
+    // ── Calibration parameters (can be tuned) ──────────────────
+    this.DWELL_TIME_MS = 3000;     // longer dwell per point (was 2000)
+    this.MEASUREMENT_TIME_MS = 1500; // collect samples for this duration
+    this.MIN_SAMPLES = 100;         // require more samples for quality
+    this.MSE_THRESHOLD = 0.25;      // require MSE < 25% (gating requirement)
+
     this.onCalibrationComplete = null;
     this.onQualityMeasured = null;
   }
@@ -92,14 +98,15 @@ export class CalibrationSystem {
     el.style.left = `${dot.x * 100}%`;
     el.style.top = `${dot.y * 100}%`;
     el.style.display = 'block';
-    el.style.animation = 'dotShrink 2s ease-in forwards';
+    // Longer dwell animation to match DWELL_TIME_MS
+    el.style.animation = `dotShrink ${this.DWELL_TIME_MS / 1000}s ease-in forwards`;
 
     // clear previous timer
     if (this._dotTimer) clearTimeout(this._dotTimer);
 
     this._dotTimer = setTimeout(() => {
       this.nextDot();
-    }, 2000);
+    }, this.DWELL_TIME_MS);
   }
 
   nextDot() {
@@ -175,35 +182,40 @@ export class CalibrationSystem {
         if (gazeResult.gazeState === 'open') {
           samples.push({
             x: gazeResult.normPog[0],
-            y: gazeResult.normPog[1]
+            y: gazeResult.normPog[1],
+            timestamp: gazeResult.timestamp
           });
         }
       };
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Collect for longer duration to get more samples
+      await new Promise(resolve => setTimeout(resolve, this.MEASUREMENT_TIME_MS));
 
       this.tracker.onGazeResults = originalCallback;
 
       if (el) el.style.display = 'none';
 
-      if (samples.length > 0) {
-        const meanX =
-          samples.reduce((s, p) => s + p.x, 0) / samples.length;
+      if (samples.length > this.MIN_SAMPLES) {
+        // Outlier rejection: remove samples beyond 1.5x IQR
+        const cleaned = this._removeOutliers(samples, dot);
 
-        const meanY =
-          samples.reduce((s, p) => s + p.y, 0) / samples.length;
+        if (cleaned.length > 0) {
+          const meanX = cleaned.reduce((s, p) => s + p.x, 0) / cleaned.length;
+          const meanY = cleaned.reduce((s, p) => s + p.y, 0) / cleaned.length;
 
-        const error = Math.sqrt(
-          Math.pow(meanX - dot.normalizedX, 2) +
-          Math.pow(meanY - dot.normalizedY, 2)
-        );
+          const error = Math.sqrt(
+            Math.pow(meanX - dot.normalizedX, 2) +
+            Math.pow(meanY - dot.normalizedY, 2)
+          );
 
-        measurements.push({
-          dot,
-          meanGaze: { x: meanX, y: meanY },
-          error,
-          samples: samples.length
-        });
+          measurements.push({
+            dot,
+            meanGaze: { x: meanX, y: meanY },
+            error,
+            samples: cleaned.length,
+            originalSamples: samples.length
+          });
+        }
       }
     }
 
@@ -216,7 +228,39 @@ export class CalibrationSystem {
     console.log(
       `Bias correction applied — x: ${this.biasX.toFixed(4)}, y: ${this.biasY.toFixed(4)}`
     );
+    console.log(`Calibration MSE: ${quality.meanError?.toFixed(4) || 'N/A'}`);
 
     this.onQualityMeasured?.(quality);
+  }
+
+  // ── Outlier rejection via IQR method ──────────────────────────────────────
+  _removeOutliers(samples, dot) {
+    // Compute distances from target for each sample
+    const distances = samples.map(s => 
+      Math.sqrt(
+        Math.pow(s.x - dot.normalizedX, 2) +
+        Math.pow(s.y - dot.normalizedY, 2)
+      )
+    ).sort((a, b) => a - b);
+
+    if (distances.length < 4) return samples; // Too few to filter
+
+    // Compute IQR
+    const q1Idx = Math.floor(distances.length * 0.25);
+    const q3Idx = Math.floor(distances.length * 0.75);
+    const q1 = distances[q1Idx];
+    const q3 = distances[q3Idx];
+    const iqr = q3 - q1;
+    const lowerBound = q1 - 1.5 * iqr;
+    const upperBound = q3 + 1.5 * iqr;
+
+    // Filter and return samples within bounds
+    return samples.filter(s => {
+      const dist = Math.sqrt(
+        Math.pow(s.x - dot.normalizedX, 2) +
+        Math.pow(s.y - dot.normalizedY, 2)
+      );
+      return dist >= lowerBound && dist <= upperBound;
+    });
   }
 }

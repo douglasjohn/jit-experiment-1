@@ -231,13 +231,11 @@ export function moveGazeDot(x, y, visible = true) {
 }
 
 export function showFixationIndicator(x, y) {
-  const fixationIndicator = document.getElementById('fixation-indicator');
-
-  fixationIndicator.style.transform = `translate(${x - 10}px, ${y - 10}px)`;
-
-  fixationIndicator.style.display = 'block';
-
-  setTimeout(() => {
-    fixationIndicator.style.display = 'none';
-  }, 500);
+  // Fixation is logged in gazeManager.handleFixation().
+  // Visual indicator is hidden but coordinates are still collected.
+  // Uncomment to re-enable visual display:
+  // const fixationIndicator = document.getElementById('fixation-indicator');
+  // fixationIndicator.style.transform = `translate(${x - 10}px, ${y - 10}px)`;
+  // fixationIndicator.style.display = 'block';
+  // setTimeout(() => { fixationIndicator.style.display = 'none'; }, 500);
 }

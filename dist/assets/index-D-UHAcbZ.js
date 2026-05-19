@@ -2,6 +2,7 @@ var eB=Object.defineProperty;var vT=de=>{throw TypeError(de)};var tB=(de,ne,ke)=
     <section id="screen-loading"></section>
     <section id="screen-prolific-welcome"></section>
     <section id="screen-consent"></section>
+    <section id="screen-demographics"></section>
     <section id="screen-env-check"></section>
     <section id="screen-calibration"></section>
     <section id="screen-task-instruction"></section>

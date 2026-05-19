@@ -3,6 +3,7 @@ import './style.css';
 import { renderAppShell } from './UI/appShell';
 import { setStatus } from './UI/status';
 import { initConsentScreen } from './UI/screens/consent';
+import { renderProlificWelcomeScreen } from './UI/screens/prolific-welcome';
 import { renderLoadingScreen } from './UI/screens/loading';
 import { renderEnvCheckScreen } from './UI/screens/env-check';
 import { renderCalibrationScreen } from './UI/screens/calibration';
@@ -16,7 +17,7 @@ import { showScreen } from './experiment/router';
 import { initRouter } from './experiment/router-init';
 import { initTaskRunner } from './experiment/taskRunner';
 import { CONFIG } from './experiment/config';
-import { sessionData } from './experiment/session';
+import { captureProlificParams, sessionData } from './experiment/session';
 
 import { IVTFixationDetector } from './tracker/fixationDetector';
 import { CalibrationSystem } from './tracker/calibration';
@@ -46,6 +47,8 @@ initRouter();
 window.addEventListener('DOMContentLoaded', () => {
   // Pre-render all screen placeholders so the DOM containers exist
   renderLoadingScreen();
+  captureProlificParams();
+  renderProlificWelcomeScreen();
   renderEnvCheckScreen();
   renderCalibrationScreen();
   renderTaskInstructionScreen();
@@ -62,7 +65,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   initConsentScreen();
-  showScreen('screen-consent');
+  showScreen('screen-prolific-welcome');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

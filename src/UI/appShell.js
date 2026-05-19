@@ -1,6 +1,7 @@
 export function renderAppShell() {
   document.querySelector('#app').innerHTML = `
     <section id="screen-loading"></section>
+    <section id="screen-prolific-welcome"></section>
     <section id="screen-consent"></section>
     <section id="screen-env-check"></section>
     <section id="screen-calibration"></section>

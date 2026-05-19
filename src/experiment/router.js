@@ -1,5 +1,5 @@
 export function showScreen(id) {
-  const sections = document.querySelectorAll('section');
+  const sections = document.querySelectorAll('#app > section');
 
   if (!sections.length) {
     console.warn('No UI mounted yet');

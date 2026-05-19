@@ -36,6 +36,10 @@ export class GazeManager {
     // Timestamps for throttling log writes
     this._lastGazeLogAt    = 0;
     this._lastRawSampleAt  = 0;
+    // Streaming/upload state
+    this._lastGazeSentIndex = 0;
+    this._uploaderIntervalId = null;
+    this._uploadInFlight = false;
 
     // Public state (read by researcher overlay and researcher mode)
     this.currentAOI              = null;
@@ -59,6 +63,10 @@ export class GazeManager {
     if (this.initialized) return;
     this.initialized = true;
     sessionData.gazeManagerStatus.push({ type: 'initialized', timestamp: Date.now() });
+    // Start optional gaze streaming uploader if configured
+    if (CONFIG.GAZE_STREAMING_ENABLED && CONFIG.DATA_ENDPOINT) {
+      this.startGazeStreaming();
+    }
   }
 
   // ── AOI management ──────────────────────────────────────────────────────────
@@ -281,6 +289,76 @@ export class GazeManager {
 
   startRawWindow(durationMs) {
     this.rawWindowUntil = Math.max(this.rawWindowUntil, performance.now() + durationMs);
+  }
+
+  // ── Gaze streaming / upload ──────────────────────────────────────────────
+
+  startGazeStreaming() {
+    if (!CONFIG.DATA_ENDPOINT) return;
+    if (this._uploaderIntervalId) return; // already running
+    const interval = CONFIG.GAZE_STREAM_INTERVAL_MS || 5000;
+    this._uploaderIntervalId = setInterval(() => this._uploadGazeChunk(), interval);
+    sessionData.events.push({ type: 'gaze-stream-start', timestamp: Date.now() });
+  }
+
+  stopGazeStreaming() {
+    if (this._uploaderIntervalId) {
+      clearInterval(this._uploaderIntervalId);
+      this._uploaderIntervalId = null;
+      sessionData.events.push({ type: 'gaze-stream-stop', timestamp: Date.now() });
+    }
+  }
+
+  async _uploadGazeChunk() {
+    if (this._uploadInFlight) return;
+    if (!CONFIG.DATA_ENDPOINT) return;
+
+    const start = this._lastGazeSentIndex || 0;
+    const all = sessionData.gazeLog || [];
+    if (start >= all.length) return; // nothing new
+
+    const maxSamples = CONFIG.GAZE_CHUNK_MAX_SAMPLES || 0;
+    const end = maxSamples > 0 ? Math.min(all.length, start + maxSamples) : all.length;
+    const chunk = all.slice(start, end);
+    if (!chunk.length) return;
+
+    const endpoint = `${CONFIG.DATA_ENDPOINT.replace(/\/+$/, '')}/gaze-chunk`;
+    const payload = {
+      participantId: sessionData.participantId || null,
+      participantIDs: {
+        prolific_pid: sessionData.PROLIFIC_PID,
+        study_id: sessionData.STUDY_ID,
+        session_id: sessionData.SESSION_ID,
+      },
+      chunk_start_index: start,
+      chunk_length: chunk.length,
+      gazeLog: chunk,
+      timestamp: Date.now(),
+    };
+
+    this._uploadInFlight = true;
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      this._lastGazeSentIndex = end;
+      sessionData.events.push({ type: 'gaze-chunk-sent', timestamp: Date.now(), length: chunk.length });
+    } catch (err) {
+      console.error('Gaze chunk upload failed:', err);
+      sessionData.events.push({ type: 'gaze-chunk-failed', timestamp: Date.now(), error: err.message || String(err) });
+    } finally {
+      this._uploadInFlight = false;
+    }
+  }
+
+  async flushAndStopGazeUpload() {
+    // Stop periodic uploads then upload any remaining samples synchronously
+    this.stopGazeStreaming();
+    // Attempt one final upload if there are unsent samples
+    await this._uploadGazeChunk();
   }
 
   // ── Study 2 hooks ───────────────────────────────────────────────────────────

@@ -90,6 +90,15 @@ function _assemblePayload() {
 // ── Submission ────────────────────────────────────────────────────────────────
 
 async function _submitSessionData() {
+  // Ensure any background gaze uploads complete before final submission
+  try {
+    if (window.gazeManager && typeof window.gazeManager.flushAndStopGazeUpload === 'function') {
+      await window.gazeManager.flushAndStopGazeUpload();
+    }
+  } catch (err) {
+    console.warn('Final gaze upload failed (continuing):', err);
+  }
+
   if (!CONFIG.DATA_ENDPOINT) {
     _showDownloadFallback();
     return;

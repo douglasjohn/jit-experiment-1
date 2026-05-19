@@ -120,6 +120,20 @@ export const CONFIG = {
    */
   ALLOW_DEGRADED_GAZE: true,
 
+  // ── GAZE STREAMING / UPLOAD (optional) ───────────────────────────────────
+  /**
+   * When true, the `GazeManager` will POST incremental gaze chunks to
+   * `${CONFIG.DATA_ENDPOINT}/gaze-chunk` every `GAZE_STREAM_INTERVAL_MS`.
+   * The server needs to accept these partial uploads. Default: disabled.
+   */
+  GAZE_STREAMING_ENABLED: true,
+
+  /** Interval between gaze chunk uploads (ms) */
+  GAZE_STREAM_INTERVAL_MS: 5000,
+
+  /** Maximum number of gaze samples sent per chunk (0 = unlimited) */
+  GAZE_CHUNK_MAX_SAMPLES: 0,
+
   // ── INTERNAL (do not edit) ────────────────────────────────────────────────
   RESEARCHER_MODE,
   RESEARCHER_TASK,

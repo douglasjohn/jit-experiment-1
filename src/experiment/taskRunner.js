@@ -157,15 +157,15 @@ const TASK_DEFINITIONS = {
       // Per spec: Full name, Correspondence preference, Notification cadence,
       // and Account classification have NO errors. The other four do.
       const fields = [
-        { label: 'Full name',                 type: 'text',   hasError: false },
-        { label: 'Email address',             type: 'text',   hasError: true,  error: '.net, .mail, and .gov are not permitted' },
+        { label: 'Account nickname',                 type: 'text',   hasError: false },
+        { label: 'Portfolio address',             type: 'text',   hasError: true,  error: '.net, .mail, and .gov are not permitted' },
         { label: 'Correspondence preference', type: 'text',   hasError: false },
         { label: 'Notification cadence',      type: 'select', hasError: false,
           options: ['Choose cadence', 'steady', 'never', 'rapid', 'bi-weekly', 'daily'] },
         { label: 'Account classification',    type: 'text',   hasError: false },
-        { label: 'Password',                  type: 'text',   hasError: true,  error: 'Invalid value — check format' },
-        { label: 'Confirm password',          type: 'text',   hasError: true,  error: 'Invalid value — check format' },
-        { label: 'Phone number',              type: 'text',   hasError: true,  error: 'Include country code. +3, +111, +625, & +332 are not permitted.' },
+        { label: 'Temporary password',                  type: 'text',   hasError: true,  error: 'Invalid value — check format' },
+        { label: 'Confirm temporary password',          type: 'text',   hasError: true,  error: 'Invalid value — check format' },
+        { label: 'Pager number',              type: 'text',   hasError: true,  error: 'Include country code. +3, +111, +625, & +332 are not permitted.' },
       ];
 
       const rows = fields.map((f, i) => {
@@ -333,64 +333,31 @@ const TASK_DEFINITIONS = {
   'error-diagnosis': {
     id:    'error-diagnosis',
     type:  'debug',
-    title: 'JavaScript Error Diagnosis',
-    instructions: 'Examine the error and answer all three diagnostic questions.',
+    title: 'Error Diagnosis Attention Check',
+    instructions: 'The task you are about to take part in is very simple. When asked for your favorite ice cream flavour you must select "Chocolate". This is an attention check.',
     attention_check: true,
+    no_time_limit: true,
+    attention_check_retry_limit: 2,
+    attention_check_input_name: 'ed-check',
+    correctAnswer: 'chocolate',
     stimulus_html: `
-      <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#fef2f2;font-family:system-ui,sans-serif;">
-        <div data-aoi="ed-trace" style="padding:16px;background:#1f2937;color:#10b981;border-radius:8px;font-family:'Courier New',monospace;font-size:12px;line-height:1.6;overflow-x:auto;">
-          <div style="color:#ef4444;margin-bottom:8px;"><strong>TypeError: Cannot read properties of undefined (reading 'map')</strong></div>
-          <div style="color:#9ca3af;">at processUserData (app.js:45:12)</div>
-          <div style="color:#9ca3af;">at getUserList (app.js:32:8)</div>
-          <div style="color:#9ca3af;">at async fetchAndProcess (app.js:18:5)</div>
-          <div style="color:#9ca3af;">at async main (app.js:5:3)</div>
-          <div style="margin-top:12px;">
-            <div style="color:#6b7280;font-size:11px;"><strong>app.js:43–47</strong></div>
-            <div style="margin-top:6px;padding:8px;background:#111827;border-left:3px solid #ef4444;">
-              <div><span style="color:#9ca3af;">43:</span> <span style="color:#10b981;">function</span> processUserData(data) {</div>
-              <div><span style="color:#9ca3af;">44:</span>   <span style="color:#9ca3af;">// filtering logic</span></div>
-              <div style="background:#7f1d1d;"><span style="color:#ef4444;">45:</span>   <span style="color:#f87171;">const result = data.map(item =&gt; ({...item, active: true}));</span></div>
-              <div><span style="color:#9ca3af;">46:</span>   <span style="color:#10b981;">return</span> result;</div>
-              <div><span style="color:#9ca3af;">47:</span> }</div>
-            </div>
-          </div>
+      <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#f8fafc;font-family:system-ui,sans-serif;">
+        <div style="margin-bottom:20px;color:#111827;font-size:16px;line-height:1.7;">
+          The task you are about to take part in is very simple. When asked for your favorite ice cream flavour you must select <strong>"Chocolate"</strong>. This is an attention check.
         </div>
-
-        <div data-aoi="ed-questions" style="display:grid;gap:16px;margin-top:20px;">
-          <div style="padding:16px;background:#fef3c7;border-radius:8px;border:1px solid #fcd34d;">
-            <p style="margin:0 0 10px;font-weight:600;color:#92400e;">1. What type of error occurred?</p>
-            <div style="display:grid;gap:8px;">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="ed-error-type" value="syntax" /> Syntax Error</label>
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="ed-error-type" value="reference" /> Reference Error</label>
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="ed-error-type" value="type" /> <strong>Type Error</strong></label>
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="ed-error-type" value="logic" /> Logic Error</label>
-            </div>
+        <div style="padding:20px;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;">
+          <div style="font-weight:700;font-size:16px;color:#111827;margin-bottom:12px;">
+            Based on the text you read above, what is the best ice cream flavour you have been asked to enter?
           </div>
-          <div style="padding:16px;background:#fef3c7;border-radius:8px;border:1px solid #fcd34d;">
-            <p style="margin:0 0 10px;font-weight:600;color:#92400e;">2. On which line did the error occur?</p>
-            <div style="display:grid;gap:8px;">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="ed-error-line" value="32" /> Line 32</label>
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="ed-error-line" value="45" /> <strong>Line 45</strong></label>
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="ed-error-line" value="18" /> Line 18</label>
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="ed-error-line" value="5" /> Line 5</label>
-            </div>
-          </div>
-          <div style="padding:16px;background:#dbeafe;border-radius:8px;border:1px solid #93c5fd;">
-            <p style="margin:0 0 10px;font-weight:600;color:#1e40af;">
-              3. <span style="background:#fef08a;padding:2px 6px;border-radius:4px;">Attention check: for this question only, please select option C.</span>
-              What is the most likely root cause?
-            </p>
-            <div style="display:grid;gap:8px;">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="ed-error-cause" value="a" /> <strong>A:</strong>&nbsp;data is null or undefined when passed to processUserData()</label>
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="ed-error-cause" value="b" /> <strong>B:</strong>&nbsp;map() does not exist in this JS version</label>
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="ed-error-cause" value="c" /> <strong style="color:#dc2626;">C:</strong>&nbsp;A syntax error in the function declaration</label>
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="ed-error-cause" value="d" /> <strong>D:</strong>&nbsp;The item variable is not defined</label>
-            </div>
+          <div style="display:grid;gap:12px;">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;"><input type="radio" name="ed-check" value="vanilla" /> <span>Vanilla</span></label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;"><input type="radio" name="ed-check" value="strawberry" /> <span>Strawberry</span></label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;"><input type="radio" name="ed-check" value="chocolate" /> <span>Chocolate</span></label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;"><input type="radio" name="ed-check" value="mint" /> <span>Mint</span></label>
           </div>
         </div>
       </div>`,
-    aois: [{ id: 'ed-trace' }, { id: 'ed-questions' }],
-    // Radio values collected by _getResponses via querySelectorAll; no text fields needed
+    aois: [{ id: 'ed-check' }],
     questions: [],
   },
 
@@ -400,7 +367,6 @@ const TASK_DEFINITIONS = {
     type:  'following',
     title: 'Router Configuration',
     instructions: 'Configure the router: set Security Type to WPA3, enter DNS 8.8.8.8, then click Save Changes.',
-    attention_check: true,
     stimulus_html: `
       <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#eef2ff;font-family:system-ui,sans-serif;">
         <div style="max-width:700px;margin:0 auto;">
@@ -508,6 +474,7 @@ export function initTaskRunner(gazeManager) {
   let autoAdvanceTimeout = null;
   let autoAdvanceCountdown = null;
   let endOfTaskResolve = null;
+  let attentionCheckFailures = {};
 
   // ── Probe subscriptions ───────────────────────────────────────────────────
   gazeManager.onProbe('overrun', async (payload) => {
@@ -645,6 +612,57 @@ export function initTaskRunner(gazeManager) {
     }
 
     return { ...radios, ...fields };
+  }
+
+  function _getAttentionCheckResponse() {
+    if (!currentTask?.attention_check) return null;
+    const inputName = currentTask.attention_check_input_name || `${currentTask.id}-check`;
+    return document.querySelector(`input[name="${inputName}"]:checked`)?.value || null;
+  }
+
+  function _isAttentionCheckCorrect() {
+    if (!currentTask?.attention_check || !currentTask?.correctAnswer) return true;
+    return _getAttentionCheckResponse() === currentTask.correctAnswer;
+  }
+
+  function _handleAttentionCheckFailure() {
+    const taskId = currentTask?.id;
+    if (!taskId) return false;
+
+    const attempt = (attentionCheckFailures[taskId] || 0) + 1;
+    attentionCheckFailures[taskId] = attempt;
+    const limit = currentTask.attention_check_retry_limit || 2;
+    const errEl = document.getElementById('submit-error');
+    const submitBtn = document.getElementById('submit-task-btn');
+    const inputName = currentTask.attention_check_input_name || `${taskId}-check`;
+    const radios = Array.from(document.querySelectorAll(`input[name="${inputName}"]`));
+
+    _logEvent('attention-check-failed', {
+      task_id: taskId,
+      attempt,
+      response: _getAttentionCheckResponse(),
+    });
+
+    if (attempt >= limit) {
+      if (errEl) {
+        errEl.innerHTML = 'You have failed this attention check twice. Please close the survey and click <strong>Cancel participation</strong> on Prolific to return your submission.';
+        errEl.style.display = 'block';
+      }
+      radios.forEach(r => { r.disabled = true; });
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+        submitBtn.style.cursor = 'not-allowed';
+      }
+      return false;
+    }
+
+    const remaining = limit - attempt;
+    if (errEl) {
+      errEl.textContent = `That answer is not correct. Please try again. You have ${remaining} more ${remaining === 1 ? 'chance' : 'chances'}.`;
+      errEl.style.display = 'block';
+    }
+    return true;
   }
 
   // ── Render helpers ────────────────────────────────────────────────────────
@@ -844,10 +862,25 @@ export function initTaskRunner(gazeManager) {
       const errEl  = document.getElementById('submit-error');
       if (errors.length > 0) {
         if (errEl) { errEl.textContent = errors[0]; errEl.style.display = 'block'; }
-        // Scroll error into view
         errEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         return;
       }
+
+      if (currentTask?.attention_check && !_isAttentionCheckCorrect()) {
+        const keepTrying = _handleAttentionCheckFailure();
+        if (keepTrying) {
+          errEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        return;
+      }
+
+      if (currentTask?.attention_check) {
+        _logEvent('attention-check-passed', {
+          task_id: currentTask.id,
+          response: _getAttentionCheckResponse(),
+        });
+      }
+
       if (errEl) errEl.style.display = 'none';
       _submitResponse(currentTask.id, { responses: _getResponses() });
     };
@@ -861,11 +894,13 @@ export function initTaskRunner(gazeManager) {
     currentTaskStart = performance.now();
 
     gazeManager.setActiveTask(currentTask.id);
-    gazeManager.startOverrunTimer(
-      currentTask.id,
-      CONFIG.TASK_EXPECTED_DURATIONS[currentTask.id],
-      CONFIG.TIME_OVERRUN_FACTOR
-    );
+    if (!currentTask.no_time_limit) {
+      gazeManager.startOverrunTimer(
+        currentTask.id,
+        CONFIG.TASK_EXPECTED_DURATIONS[currentTask.id],
+        CONFIG.TIME_OVERRUN_FACTOR
+      );
+    }
 
     _renderTaskScreen(currentTask);
     showScreen('screen-task');

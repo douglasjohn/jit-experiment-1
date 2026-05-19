@@ -60,7 +60,6 @@ export function renderNasaTlxScreen() {
       <h1 style="margin:0 0 8px; font-size:28px; color:#111827;">Workload Assessment</h1>
       <p style="margin:0 0 28px; color:#6b7280; font-size:15px; line-height:1.6;">
         Thinking about the study overall, rate your experience on each dimension.
-        Drag each slider from 0 (left anchor) to 100 (right anchor).
       </p>
 
       <div id="nasatlx-form" style="display:grid; gap:0;">

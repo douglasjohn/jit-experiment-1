@@ -38,11 +38,11 @@ export const CONFIG = {
    */
   TASK_ORDER: [
     'broken-nav',
+    'error-diagnosis',
     'ambiguous-form',
     'data-table',
     'math-problem',
     'visual-search',
-    'error-diagnosis',
     'instruction-following',
     'reading-inference',
   ],
@@ -90,7 +90,7 @@ export const CONFIG = {
     'data-table':           10,
     'math-problem':         10,
     'visual-search':        10,
-    'error-diagnosis':      10,
+    'error-diagnosis':      500,  // no auto-advance
     'instruction-following':10,
     'reading-inference':    10,
   },

@@ -126,7 +126,7 @@ export const CONFIG = {
    * `${CONFIG.DATA_ENDPOINT}/gaze-chunk` every `GAZE_STREAM_INTERVAL_MS`.
    * The server needs to accept these partial uploads. Default: disabled.
    */
-  GAZE_STREAMING_ENABLED: true,
+  GAZE_STREAMING_ENABLED: false,
 
   /** Interval between gaze chunk uploads (ms) */
   GAZE_STREAM_INTERVAL_MS: 5000,

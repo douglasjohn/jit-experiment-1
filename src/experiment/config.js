@@ -85,14 +85,14 @@ export const CONFIG = {
    * Example: { 'broken-nav': 30, 'math-problem': 45 }
    */
   AUTO_ADVANCE_TIMEOUTS: {
-    'broken-nav':           10,
-    'ambiguous-form':       10,
-    'data-table':           10,
-    'math-problem':         10,
-    'visual-search':        10,
-    'error-diagnosis':      500,  // no auto-advance
-    'instruction-following':10,
-    'reading-inference':    10,
+    'broken-nav':           30,
+    'ambiguous-form':       30,
+    'data-table':           30,
+    'math-problem':         30,
+    'visual-search':        30,
+    'error-diagnosis':      5000,  // no auto-advance
+    'instruction-following':30,
+    'reading-inference':    30,
   },
 
   // ── STUDY MODE ────────────────────────────────────────────────────────────

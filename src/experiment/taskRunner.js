@@ -705,6 +705,13 @@ export function initTaskRunner(gazeManager) {
          </div>`
       : '';
 
+    const taskInstructionsBanner = task.instructions
+      ? `<div style="margin-bottom:20px;padding:18px 20px;background:#eef2ff;color:#1e3a8a;border-radius:14px;border:1px solid #bfdbfe;line-height:1.7;font-size:15px;">
+           <strong style="display:block;margin-bottom:8px;font-size:16px;">Instructions</strong>
+           ${task.instructions}
+         </div>`
+      : '';
+
     const autoAdvanceEnabled = CONFIG.AUTO_ADVANCE_ENABLED && 
                                CONFIG.AUTO_ADVANCE_TIMEOUTS[task.id] > 0;
     const autoAdvanceTimeout = autoAdvanceEnabled ? CONFIG.AUTO_ADVANCE_TIMEOUTS[task.id] : 0;
@@ -751,6 +758,8 @@ export function initTaskRunner(gazeManager) {
             <div style="width:${progressPct}%;height:100%;background:#4f46e5;transition:width .3s;"></div>
           </div>
         </div>
+
+        ${taskInstructionsBanner}
 
         ${pilotBanner}
 

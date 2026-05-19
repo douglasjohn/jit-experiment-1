@@ -710,7 +710,7 @@ export function initTaskRunner(gazeManager) {
     const autoAdvanceTimeout = autoAdvanceEnabled ? CONFIG.AUTO_ADVANCE_TIMEOUTS[task.id] : 0;
     
     const autoAdvanceBanner = autoAdvanceEnabled && autoAdvanceTimeout > 0
-      ? `<div id="auto-advance-banner" style="margin-bottom:20px;padding:14px 16px;background:#dbeafe;color:#0c4a6e;border-radius:12px;border:1px solid #0284c7;">
+      ? `<div id="auto-advance-banner" style="display:none;margin-top:20px;padding:14px 16px;background:#dbeafe;color:#0c4a6e;border-radius:12px;border:1px solid #0284c7;">
            <div style="font-weight:600;margin-bottom:6px;">⏰ Auto-advance in <span id="countdown-timer">${autoAdvanceTimeout}</span>s</div>
            <div style="font-size:14px;line-height:1.5;">This task will automatically submit and move to the next one. You can submit early by clicking the button below.</div>
          </div>`
@@ -754,8 +754,6 @@ export function initTaskRunner(gazeManager) {
 
         ${pilotBanner}
 
-        ${autoAdvanceBanner}
-
         <div id="task-stimulus" style="margin-bottom:28px;">${task.stimulus_html}</div>
 
         ${questionsHtml ? `
@@ -776,6 +774,8 @@ export function initTaskRunner(gazeManager) {
           onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059669'">
           Submit Response →
         </button>
+
+        ${autoAdvanceBanner}
       </div>`;
 
 
@@ -925,13 +925,18 @@ export function initTaskRunner(gazeManager) {
 
       const updateCountdown = () => {
         const countdownEl = document.getElementById('countdown-timer');
+        const banner = document.getElementById('auto-advance-banner');
+        if (remainingSecs <= 10) {
+          if (banner) banner.style.display = 'block';
+        }
         if (countdownEl) {
           countdownEl.textContent = remainingSecs;
         }
         remainingSecs--;
       };
 
-      // Start countdown display
+      // Start countdown display; keep banner hidden until the last 10 seconds
+      updateCountdown();
       autoAdvanceCountdown = setInterval(updateCountdown, 1000);
 
       // Set up auto-submit

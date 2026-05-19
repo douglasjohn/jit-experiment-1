@@ -20,7 +20,7 @@ export function renderDemographicsScreen() {
 
       <div style="display:grid;gap:24px;">
         <section>
-          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;">How old are you?</h2>
+          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;text-align:left;">How old are you?</h2>
           <div style="display:grid;gap:10px;">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
               <input type="radio" name="demo-age" value="18-24" style="width:16px;height:16px;" />
@@ -54,7 +54,7 @@ export function renderDemographicsScreen() {
         </section>
 
         <section>
-          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;">How do you describe yourself?</h2>
+          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;text-align:left;">How do you describe yourself?</h2>
           <div style="display:grid;gap:10px;">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
               <input type="radio" name="demo-gender" value="Female" style="width:16px;height:16px;" />
@@ -84,7 +84,7 @@ export function renderDemographicsScreen() {
         </section>
 
         <section>
-          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;">What is the highest level of education you have completed or are currently pursuing?</h2>
+          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;text-align:left;">What is the highest level of education you have completed or are currently pursuing?</h2>
           <div style="display:grid;gap:10px;">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
               <input type="radio" name="demo-education" value="None" style="width:16px;height:16px;" />
@@ -118,7 +118,7 @@ export function renderDemographicsScreen() {
         </section>
 
         <section>
-          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;">How would you rate your English proficiency?</h2>
+          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;text-align:left;">How would you rate your English proficiency?</h2>
           <div style="display:grid;gap:10px;">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
               <input type="radio" name="demo-english" value="Native" style="width:16px;height:16px;" />

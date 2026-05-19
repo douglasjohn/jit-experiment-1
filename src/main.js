@@ -4,6 +4,7 @@ import { renderAppShell } from './UI/appShell';
 import { setStatus } from './UI/status';
 import { initConsentScreen } from './UI/screens/consent';
 import { renderProlificWelcomeScreen } from './UI/screens/prolific-welcome';
+import { renderDemographicsScreen } from './UI/screens/demographics';
 import { renderLoadingScreen } from './UI/screens/loading';
 import { renderEnvCheckScreen } from './UI/screens/env-check';
 import { renderCalibrationScreen } from './UI/screens/calibration';
@@ -49,6 +50,7 @@ window.addEventListener('DOMContentLoaded', () => {
   renderLoadingScreen();
   captureProlificParams();
   renderProlificWelcomeScreen();
+  renderDemographicsScreen();
   renderEnvCheckScreen();
   renderCalibrationScreen();
   renderTaskInstructionScreen();

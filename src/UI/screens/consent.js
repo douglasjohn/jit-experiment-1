@@ -145,20 +145,12 @@ export function initConsentScreen() {
     if (btn.disabled) return;
 
     btn.disabled = true;
-    btn.textContent = 'Starting...';
+    btn.textContent = 'Continuing...';
 
     sessionData.consentTimestamp = Date.now();
     sessionData.events.push({ type: 'consent-given', timestamp: Date.now() });
 
-    try {
-      await window.startWebEyeTrack();
-      showScreen('screen-calibration');
-    } catch (err) {
-      console.error('Failed to start eye tracking:', err);
-      btn.disabled    = false;
-      btn.textContent = 'Begin Study →';
-      alert('Failed to initialise eye tracking. Please refresh and try again.');
-    }
+    showScreen('screen-demographics');
   });
 
   updateButton();

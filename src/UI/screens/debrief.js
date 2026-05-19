@@ -77,6 +77,7 @@ function _assemblePayload() {
     // ── Task responses & probes ───────────────────────────────────────────────
     taskResponses:      sessionData.taskResponses,
     probeResponses:     sessionData.probeResponses,
+    demographics:       sessionData.demographics,
 
     // ── Workload ──────────────────────────────────────────────────────────────
     nasaTLX:            sessionData.nasaTLX,

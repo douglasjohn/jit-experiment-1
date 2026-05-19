@@ -2,6 +2,7 @@ export const screens = [
   'screen-loading',
   'screen-prolific-welcome',
   'screen-consent',
+  'screen-demographics',
   'screen-env-check',
   'screen-calibration',
   'screen-task-instruction',

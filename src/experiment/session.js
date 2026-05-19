@@ -10,6 +10,7 @@ export const sessionData = {
   PROLIFIC_PID:             null,
   STUDY_ID:                 null,
   SESSION_ID:               null,
+  demographics:             null,
 
   // ── Timing ────────────────────────────────────────────────────────────────
   startTime:                performance.now(),

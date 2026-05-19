@@ -505,6 +505,8 @@ export function initTaskRunner(gazeManager) {
   let currentTask      = null;
   let currentTaskStart = null;
   let pilotTimeout     = null;
+  let autoAdvanceTimeout = null;
+  let autoAdvanceCountdown = null;
   let endOfTaskResolve = null;
 
   // ── Probe subscriptions ───────────────────────────────────────────────────
@@ -550,6 +552,8 @@ export function initTaskRunner(gazeManager) {
 
   function _clearTimers() {
     if (pilotTimeout) { clearTimeout(pilotTimeout); pilotTimeout = null; }
+    if (autoAdvanceTimeout) { clearTimeout(autoAdvanceTimeout); autoAdvanceTimeout = null; }
+    if (autoAdvanceCountdown) { clearInterval(autoAdvanceCountdown); autoAdvanceCountdown = null; }
   }
 
   function _logEvent(type, extra = {}) {
@@ -683,6 +687,17 @@ export function initTaskRunner(gazeManager) {
          </div>`
       : '';
 
+    const autoAdvanceEnabled = CONFIG.AUTO_ADVANCE_ENABLED && 
+                               CONFIG.AUTO_ADVANCE_TIMEOUTS[task.id] > 0;
+    const autoAdvanceTimeout = autoAdvanceEnabled ? CONFIG.AUTO_ADVANCE_TIMEOUTS[task.id] : 0;
+    
+    const autoAdvanceBanner = autoAdvanceEnabled && autoAdvanceTimeout > 0
+      ? `<div id="auto-advance-banner" style="margin-bottom:20px;padding:14px 16px;background:#dbeafe;color:#0c4a6e;border-radius:12px;border:1px solid #0284c7;">
+           <div style="font-weight:600;margin-bottom:6px;">⏰ Auto-advance in <span id="countdown-timer">${autoAdvanceTimeout}</span>s</div>
+           <div style="font-size:14px;line-height:1.5;">This task will automatically submit and move to the next one. You can submit early by clicking the button below.</div>
+         </div>`
+      : '';
+
     const questionsHtml = (task.questions || [])
       .filter(q => q.type !== 'hidden')
       .map(q => {
@@ -720,6 +735,8 @@ export function initTaskRunner(gazeManager) {
         </div>
 
         ${pilotBanner}
+
+        ${autoAdvanceBanner}
 
         <div id="task-stimulus" style="margin-bottom:28px;">${task.stimulus_html}</div>
 
@@ -865,6 +882,32 @@ export function initTaskRunner(gazeManager) {
         _submitResponse(currentTask.id, { responses: _getResponses() }, { autoSubmitted: true });
       }, 60000);
     }
+
+    // ── Auto-advance countdown ────────────────────────────────────────────────
+    if (CONFIG.AUTO_ADVANCE_ENABLED && CONFIG.AUTO_ADVANCE_TIMEOUTS[currentTask.id] > 0) {
+      const timeoutSecs = CONFIG.AUTO_ADVANCE_TIMEOUTS[currentTask.id];
+      let remainingSecs = timeoutSecs;
+
+      const updateCountdown = () => {
+        const countdownEl = document.getElementById('countdown-timer');
+        if (countdownEl) {
+          countdownEl.textContent = remainingSecs;
+        }
+        remainingSecs--;
+      };
+
+      // Start countdown display
+      autoAdvanceCountdown = setInterval(updateCountdown, 1000);
+
+      // Set up auto-submit
+      autoAdvanceTimeout = setTimeout(() => {
+        clearInterval(autoAdvanceCountdown);
+        autoAdvanceCountdown = null;
+        _submitResponse(currentTask.id, { responses: _getResponses() }, { autoSubmitted: true, autoAdvanced: true });
+      }, timeoutSecs * 1000);
+
+      _logEvent('auto-advance-start', { timeout_secs: timeoutSecs });
+    }
   }
 
   async function _submitResponse(taskId, responseData = {}, options = {}) {
@@ -877,6 +920,7 @@ export function initTaskRunner(gazeManager) {
       elapsed_ms:           performance.now() - currentTaskStart,
       responses:            responseData.responses || {},
       auto_submitted:       options.autoSubmitted === true,
+      auto_advanced:        options.autoAdvanced === true,
       attention_check:      !!currentTask.attention_check,
       dwell_flagged_fields: _getDwellFlaggedFields(),
     };

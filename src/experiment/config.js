@@ -68,6 +68,33 @@ export const CONFIG = {
    */
   TIME_OVERRUN_FACTOR: 1.5,
 
+  // ── AUTO-ADVANCE SETTINGS ─────────────────────────────────────────────────
+
+  /**
+   * AUTO_ADVANCE_ENABLED: if true, tasks auto-submit after a set duration.
+   * Participants will see a countdown timer and explanation.
+   * Set to false to disable auto-advance.
+   */
+  AUTO_ADVANCE_ENABLED: true,
+
+  /**
+   * AUTO_ADVANCE_TIMEOUTS: Per-task auto-advance durations in seconds.
+   * If a task is not listed, it will not auto-advance (requires explicit submission).
+   * Set timeout to 0 to disable auto-advance for that task.
+   *
+   * Example: { 'broken-nav': 30, 'math-problem': 45 }
+   */
+  AUTO_ADVANCE_TIMEOUTS: {
+    'broken-nav':           10,
+    'ambiguous-form':       10,
+    'data-table':           10,
+    'math-problem':         10,
+    'visual-search':        10,
+    'error-diagnosis':      10,
+    'instruction-following':10,
+    'reading-inference':    10,
+  },
+
   // ── STUDY MODE ────────────────────────────────────────────────────────────
 
   /**

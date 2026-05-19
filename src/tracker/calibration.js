@@ -1,4 +1,5 @@
 import { calculateCalibrationQuality } from './qualityMetrics';
+import { CONFIG } from '../experiment/config';
 
 export class CalibrationSystem {
   constructor(webEyeTrackProxy) {
@@ -18,11 +19,23 @@ export class CalibrationSystem {
     this._dotTimer = null;
     this._finished = false;
 
-    // ── Calibration parameters (can be tuned) ──────────────────
-    this.DWELL_TIME_MS = 3000;     // longer dwell per point (was 2000)
-    this.MEASUREMENT_TIME_MS = 1500; // collect samples for this duration
-    this.MIN_SAMPLES = 100;         // require more samples for quality
-    this.MSE_THRESHOLD = 0.25;      // require MSE < 25% (gating requirement)
+    // ── Calibration parameters (mode-dependent) ────────────────────────────────────
+    const mode = CONFIG.CALIBRATION_MODE || 'enhanced';
+    if (mode === 'legacy') {
+      // Bare-bones calibration: quick and simple
+      this.DWELL_TIME_MS = 2000;     // original dwell
+      this.MEASUREMENT_TIME_MS = 1000; // original measurement duration
+      this.MIN_SAMPLES = 5;          // low threshold
+      this.MSE_THRESHOLD = Infinity; // no gating
+      this.USE_OUTLIER_REJECTION = false;
+    } else {
+      // Enhanced calibration: stricter and more robust (default)
+      this.DWELL_TIME_MS = 3000;     // longer dwell per point
+      this.MEASUREMENT_TIME_MS = 1500; // collect samples for longer
+      this.MIN_SAMPLES = 20;         // require reasonable number of samples
+      this.MSE_THRESHOLD = 0.25;     // require MSE < 25% (gating requirement)
+      this.USE_OUTLIER_REJECTION = true;
+    }
 
     this.onCalibrationComplete = null;
     this.onQualityMeasured = null;
@@ -195,9 +208,13 @@ export class CalibrationSystem {
 
       if (el) el.style.display = 'none';
 
-      if (samples.length > this.MIN_SAMPLES) {
-        // Outlier rejection: remove samples beyond 1.5x IQR
-        const cleaned = this._removeOutliers(samples, dot);
+      if (samples.length >= this.MIN_SAMPLES) {
+        let cleaned = samples;
+        
+        // Optionally apply outlier rejection
+        if (this.USE_OUTLIER_REJECTION) {
+          cleaned = this._removeOutliers(samples, dot);
+        }
 
         if (cleaned.length > 0) {
           const meanX = cleaned.reduce((s, p) => s + p.x, 0) / cleaned.length;

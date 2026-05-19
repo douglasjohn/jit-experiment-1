@@ -63,12 +63,16 @@ export function renderCalibrationScreen() {
 
     const meanErrorPct = isNaN(quality.meanError) ? null : (quality.meanError * 100).toFixed(2);
     const maxErrorPct = isNaN(quality.maxError) ? null : (quality.maxError * 100).toFixed(2);
-    const passedGate = quality.meanError !== undefined && quality.meanError < 0.25;
+    
+    // Get calibration mode and determine if passed MSE gate
+    const calibrationSystem = window._calibrationSystem;
+    const mseThreshold = calibrationSystem?.MSE_THRESHOLD || Infinity;
+    const passedGate = quality.meanError !== undefined && quality.meanError < mseThreshold;
 
     qualityText.innerHTML = `
       <strong>Mean error:</strong> ${meanErrorPct ? meanErrorPct + '%' : 'N/A'} of screen<br>
       <strong>Max error:</strong> ${maxErrorPct ? maxErrorPct + '%' : 'N/A'} of screen<br>
-      <strong>Status:</strong> <span style="color: ${passedGate ? '#059669' : '#dc2626'}; font-weight: bold;">${passedGate ? '✓ PASSED' : '✗ FAILED (< 25% required)'}</span>
+      <strong>Status:</strong> <span style="color: ${passedGate ? '#059669' : '#dc2626'}; font-weight: bold;">${passedGate ? '✓ PASSED' : '✗ NEEDS IMPROVEMENT'}</span>
     `;
 
     qualityErrors.innerHTML = '';
@@ -76,10 +80,11 @@ export function renderCalibrationScreen() {
       qualityErrors.innerHTML = quality.errors.map(e => `<div>• ${e}</div>`).join('');
     }
 
-    // Show gate warning if failed
-    gateWarning.style.display = passedGate ? 'none' : 'block';
+    // Show gate warning only if MSE gating is enabled and failed
+    const gatingEnabled = mseThreshold < Infinity;
+    gateWarning.style.display = (gatingEnabled && !passedGate) ? 'block' : 'none';
 
-    // Only enable continue if passed gate
+    // Only enable continue if passed gate (or if gating is disabled)
     continueBtn.style.display = passedGate ? 'inline-block' : 'none';
     continueBtn.disabled = !passedGate;
 

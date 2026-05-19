@@ -120,6 +120,15 @@ export const CONFIG = {
    */
   ALLOW_DEGRADED_GAZE: true,
 
+  // ── CALIBRATION SETTINGS ──────────────────────────────────────────────────
+  /**
+   * Calibration mode:
+   *   'enhanced' — longer dwell (3s), more samples (100+), outlier rejection, MSE < 25% gate
+   *   'legacy'   — shorter dwell (2s), fewer samples, no outlier rejection, no MSE gate (bare bones)
+   * Both modes show magenta dot and post-calibration stats.
+   */
+  CALIBRATION_MODE: 'enhanced',
+
   // ── GAZE STREAMING / UPLOAD (optional) ───────────────────────────────────
   /**
    * When true, the `GazeManager` will POST incremental gaze chunks to

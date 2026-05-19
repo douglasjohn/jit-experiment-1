@@ -59,6 +59,8 @@ export function attachGazePipeline({ tracker, calibrationSystem, fixationDetecto
     const rawCorrX = gazeResult.normPog[0] - (calibrationSystem?.biasX || 0);
     const rawCorrY = gazeResult.normPog[1] - (calibrationSystem?.biasY || 0);
 
+    const timestampMs = _normalizeTimestamp(gazeResult.timestamp);
+
     // 2. EMA smoothing — seed on first sample; snap on large jumps
     if (_emaX === null || _emaY === null) {
       _emaX = rawCorrX;
@@ -100,14 +102,14 @@ export function attachGazePipeline({ tracker, calibrationSystem, fixationDetecto
       y:         _emaY,
       rawX:      rawCorrX,
       rawY:      rawCorrY,
-      timestamp: gazeResult.timestamp,
+      timestamp: timestampMs,
       gazeState: gazeResult.gazeState,
       isDrift:   _driftActive,
     });
 
     // 7. Feed smoothed, non-drift gaze into fixation detector
     if (gazeResult.gazeState === 'open' && !_driftActive) {
-      const fixation = fixationDetector.step(_emaX, _emaY, gazeResult.timestamp);
+      const fixation = fixationDetector.step(_emaX, _emaY, timestampMs);
       if (fixation) {
         incrementFixationCount();
         const fixScreenX = (fixation.x + 0.5) * window.innerWidth;
@@ -120,6 +122,14 @@ export function attachGazePipeline({ tracker, calibrationSystem, fixationDetecto
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function _normalizeTimestamp(timestamp) {
+  if (typeof timestamp !== 'number' || Number.isNaN(timestamp)) {
+    return Date.now();
+  }
+  // Some tracker implementations return seconds; convert to ms when needed.
+  return timestamp < 1000 ? timestamp * 1000 : timestamp;
+}
 
 function _isLinearDrift(samples) {
   const xs = samples.map(s => s.x);

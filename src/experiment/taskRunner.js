@@ -366,20 +366,20 @@ const TASK_DEFINITIONS = {
     id:    'instruction-following',
     type:  'following',
     title: 'Router Configuration',
-    instructions: 'Configure the router: set Security Type to WPA3, enter DNS 8.8.8.8, then click Save Changes. You may enter fake information where needed — it will not affect the outcome of the experiment.',
+    instructions: 'Configure the router: click the 🔒 tab and enter DNS 8.8.8.8, then click Save Changes. You may enter fake information where needed — it will not affect the outcome of the experiment.',
     stimulus_html: `
       <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#eef2ff;font-family:system-ui,sans-serif;">
         <div style="max-width:700px;margin:0 auto;">
           <div style="background:#fff;border:1px solid #d1d5db;border-radius:8px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,.1);">
             <div style="display:flex;border-bottom:2px solid #d1d5db;background:#f9fafb;" id="if-tabs">
-              <button data-tab="0" style="flex:1;padding:16px;background:#fff;border:none;border-bottom:3px solid #4f46e5;cursor:pointer;font-weight:600;color:#1f2937;" data-aoi="if-tab-network">Network</button>
-              <button data-tab="1" style="flex:1;padding:16px;background:#f9fafb;border:none;cursor:pointer;font-size:20px;color:#6b7280;" data-aoi="if-tab-security">🔒</button>
-              <button data-tab="2" style="flex:1;padding:16px;background:#f9fafb;border:none;cursor:pointer;font-weight:600;color:#6b7280;" data-aoi="if-tab-advanced">Advanced</button>
+              <button type="button" data-tab="0" style="flex:1;padding:16px;background:#fff;border:none;border-bottom:3px solid #4f46e5;cursor:pointer;font-weight:600;color:#1f2937;" data-aoi="if-tab-network">Network</button>
+              <button type="button" data-tab="1" style="flex:1;padding:16px;background:#f9fafb;border:none;cursor:pointer;font-size:20px;color:#6b7280;" data-aoi="if-tab-security">🔒</button>
+              <button type="button" data-tab="2" style="flex:1;padding:16px;background:#f9fafb;border:none;cursor:pointer;font-weight:600;color:#6b7280;" data-aoi="if-tab-advanced">Advanced</button>
             </div>
             <div id="if-panel-0" style="padding:24px;display:block;">
               <div style="display:grid;gap:16px;">
                 <div><label style="display:block;font-weight:600;margin-bottom:6px;">WiFi SSID</label><input type="text" value="GuestNetwork" disabled style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;background:#f3f4f6;box-sizing:border-box;"/></div>
-                <div data-aoi="if-security"><label style="display:block;font-weight:600;margin-bottom:6px;">Security Type</label><select id="if-security-select" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;"><option>WEP</option><option>WPA2</option><option selected>WPA3</option></select></div>
+                <div data-aoi="if-security"><label style="display:block;font-weight:600;margin-bottom:6px;">Security Type</label><select id="if-security-select" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box;"><option>WEP</option><option>WPA2</option><option selected>WPA3</option></select></div>
               </div>
             </div>
             <div id="if-panel-1" style="padding:24px;display:none;">
@@ -390,32 +390,19 @@ const TASK_DEFINITIONS = {
               </div>
             </div>
             <div id="if-panel-2" style="padding:24px;display:none;">
-              <div><label style="display:block;font-weight:600;margin-bottom:6px;">Channel Width</label><select style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;"><option>20 MHz</option><option selected>40 MHz</option><option>80 MHz</option></select></div>
+              <div><label style="display:block;font-weight:600;margin-bottom:6px;">Channel Width</label><select style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box;"><option>20 MHz</option><option selected>40 MHz</option><option>80 MHz</option></select></div>
             </div>
             <div style="padding:24px;background:#f9fafb;border-top:1px solid #d1d5db;display:flex;gap:12px;justify-content:flex-end;">
               <button data-aoi="if-save" id="if-save-btn"
+                type="button"
                 style="padding:10px 24px;background:#4f46e5;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;transition:background .2s;"
-                onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'"
-                onclick="this.textContent='✓ Saved';this.style.background='#059669';setTimeout(()=>{this.textContent='Save Changes';this.style.background='#4f46e5';},2000);">
+              >
                 Save Changes
               </button>
-              <button style="padding:10px 24px;background:#f3f4f6;color:#1f2937;border:1px solid #d1d5db;border-radius:6px;font-weight:600;cursor:pointer;">Cancel</button>
+              <button type="button" style="padding:10px 24px;background:#f3f4f6;color:#1f2937;border:1px solid #d1d5db;border-radius:6px;font-weight:600;cursor:pointer;">Cancel</button>
             </div>
           </div>
         </div>
-        <script>
-          (function(){
-            const panels=[document.getElementById('if-panel-0'),document.getElementById('if-panel-1'),document.getElementById('if-panel-2')];
-            document.getElementById('if-tabs').querySelectorAll('button').forEach((btn,idx)=>{
-              btn.onclick=()=>{
-                panels.forEach(p=>p.style.display='none');
-                panels[idx].style.display='block';
-                document.getElementById('if-tabs').querySelectorAll('button').forEach(b=>{b.style.background='#f9fafb';b.style.borderBottom='none';b.style.color='#6b7280';});
-                btn.style.background='#fff';btn.style.borderBottom='3px solid #4f46e5';btn.style.color='#1f2937';
-              };
-            });
-          })();
-        <\/script>
       </div>`,
     aois: [
       { id: 'if-tab-network' }, { id: 'if-tab-security' }, { id: 'if-tab-advanced' },
@@ -863,6 +850,51 @@ export function initTaskRunner(gazeManager) {
       
       // Initial check
       checkCompletion();
+    }
+
+    if (task.id === 'instruction-following') {
+      const taskStimulus = document.getElementById('task-stimulus');
+      if (taskStimulus) {
+        const tabButtons = Array.from(taskStimulus.querySelectorAll('#if-tabs button[data-tab]'));
+        const panels = [
+          taskStimulus.querySelector('#if-panel-0'),
+          taskStimulus.querySelector('#if-panel-1'),
+          taskStimulus.querySelector('#if-panel-2'),
+        ];
+
+        const updateTabState = (activeIndex) => {
+          panels.forEach((panel, index) => {
+            if (panel) panel.style.display = index === activeIndex ? 'block' : 'none';
+          });
+          tabButtons.forEach((button, index) => {
+            const isActive = index === activeIndex;
+            button.style.background = isActive ? '#fff' : '#f9fafb';
+            button.style.borderBottom = isActive ? '3px solid #4f46e5' : 'none';
+            button.style.color = isActive ? '#1f2937' : '#6b7280';
+          });
+
+          if (activeIndex === 1) {
+            const dnsInput = taskStimulus.querySelector('#if-dns-input');
+            dnsInput?.focus();
+          }
+        };
+
+        tabButtons.forEach((button, index) => {
+          button.addEventListener('click', () => updateTabState(index));
+        });
+
+        updateTabState(0);
+
+        const saveBtn = taskStimulus.querySelector('#if-save-btn');
+        saveBtn?.addEventListener('click', () => {
+          saveBtn.textContent = '✓ Saved';
+          saveBtn.style.background = '#059669';
+          setTimeout(() => {
+            saveBtn.textContent = 'Save Changes';
+            saveBtn.style.background = '#4f46e5';
+          }, 1600);
+        });
+      }
     }
 
     document.getElementById('submit-task-btn').onclick = (e) => {

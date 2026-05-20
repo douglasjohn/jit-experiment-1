@@ -10,6 +10,7 @@ export function renderAppShell() {
     <section id="screen-task-instruction"></section>
     <section id="screen-task"></section>
     <section id="screen-probe"></section>
+    <section id="screen-task-complete"></section>
     <section id="screen-nasatlx"></section>
     <section id="screen-debrief"></section>
 

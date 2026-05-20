@@ -12,6 +12,7 @@ import { renderCalibrationScreen } from './UI/screens/calibration';
 import { renderTaskInstructionScreen } from './UI/screens/task-instruction';
 import { renderTaskScreen } from './UI/screens/task';
 import { renderProbeScreen } from './UI/screens/probe';
+import { renderTaskCompleteScreen } from './UI/screens/task-complete';
 import { renderNasaTlxScreen } from './UI/screens/nasatlx';
 import { renderDebriefScreen } from './UI/screens/debrief';
 import { initExperienceProbeOverlay } from './UI/overlays';
@@ -58,6 +59,7 @@ window.addEventListener('DOMContentLoaded', () => {
   renderTaskInstructionScreen();
   renderTaskScreen();
   renderProbeScreen();
+  renderTaskCompleteScreen();
   renderNasaTlxScreen();
   renderDebriefScreen();
 

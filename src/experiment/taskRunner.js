@@ -1052,7 +1052,7 @@ export function initTaskRunner(gazeManager) {
   // ── Public API ────────────────────────────────────────────────────────────
   function loadNextTask() {
     if (currentTaskIndex >= tasks.length) {
-      showScreen('screen-nasatlx');
+      showScreen('screen-task-complete');
       return;
     }
     currentTask = tasks[currentTaskIndex];

@@ -9,6 +9,7 @@ export const screens = [
   'screen-task-instruction',
   'screen-task',
   'screen-probe',
+  'screen-task-complete',
   'screen-nasatlx',
   'screen-debrief'
 ];

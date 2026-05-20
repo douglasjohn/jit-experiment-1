@@ -63,6 +63,17 @@ window.addEventListener('DOMContentLoaded', () => {
   renderNasaTlxScreen();
   renderDebriefScreen();
 
+  // DEV / TESTING SHORTCUT: load a specific screen directly with ?screen=nasatlx
+  if (CONFIG.SKIP_TO_SCREEN) {
+    const screenId = CONFIG.SKIP_TO_SCREEN.startsWith('screen-')
+      ? CONFIG.SKIP_TO_SCREEN
+      : `screen-${CONFIG.SKIP_TO_SCREEN}`;
+
+    console.log(`🚀 Skipping directly to ${screenId}`);
+    showScreen(screenId);
+    return;
+  }
+
   // RESEARCHER MODE: skip consent + calibration, jump straight to tasks
   if (CONFIG.RESEARCHER_MODE) {
     console.log('🔬 RESEARCHER MODE ENABLED');

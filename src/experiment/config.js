@@ -7,6 +7,7 @@
 const params = new URLSearchParams(window.location.search);
 const RESEARCHER_MODE = params.has('researcher') && params.get('researcher') === 'true';
 const RESEARCHER_TASK = params.get('task') || 'broken-nav';
+const SKIP_TO_SCREEN = params.get('screen') || '';
 
 export const CONFIG = {
 
@@ -146,4 +147,5 @@ export const CONFIG = {
   // ── INTERNAL (do not edit) ────────────────────────────────────────────────
   RESEARCHER_MODE,
   RESEARCHER_TASK,
+  SKIP_TO_SCREEN,
 };

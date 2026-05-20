@@ -33,7 +33,7 @@ const TASK_DEFINITIONS = {
     id:    'broken-nav',
     type:  'navigation',
     title: 'Broken Navigation',
-    instructions: 'Explore the mini website below and try to navigate to the returns policy page.',
+    instructions: 'Explore the mini website below and try to navigate to the returns policy page. You may enter fake information where needed — it will not affect the outcome of the experiment.',
     stimulus_html: `
       <div style="font-family:system-ui,sans-serif;color:#111827;display:flex;flex-direction:column;gap:24px;">
         <style>
@@ -151,7 +151,7 @@ const TASK_DEFINITIONS = {
     id:    'ambiguous-form',
     type:  'form',
     title: 'Ambiguous Form',
-    instructions: 'Fill out the registration form completely and submit it.',
+    instructions: 'Fill out the registration form completely and submit it. You may enter fake information where needed — it will not affect the outcome of the experiment.',
     stimulus_html: (() => {
       // Fields: hasError drives whether an error span appears on input.
       // Per spec: Full name, Correspondence preference, Notification cadence,
@@ -224,7 +224,7 @@ const TASK_DEFINITIONS = {
     id:    'data-table',
     type:  'table',
     title: 'Data Table Analysis',
-    instructions: 'Analyse the table and answer the questions below.',
+    instructions: 'Analyse the table and answer the questions below. You may enter fake information where needed — it will not affect the outcome of the experiment.',
     stimulus_html: `
       <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#f0fdf4;font-family:system-ui,sans-serif;">
         <table data-aoi="dt-header" style="width:100%;border-collapse:collapse;font-size:14px;text-align:left;">
@@ -260,7 +260,7 @@ const TASK_DEFINITIONS = {
     id:    'math-problem',
     type:  'calculation',
     title: 'Medication Dosage Calculation',
-    instructions: 'Solve the multi-step problem. Use the scratchpad to show your working.',
+    instructions: 'Solve the multi-step problem. Use the scratchpad to show your working. You may enter fake information where needed — it will not affect the outcome of the experiment.',
     stimulus_html: `
       <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#fff7ed;font-family:system-ui,sans-serif;">
         <div data-aoi="mp-problem" style="margin-bottom:20px;">
@@ -297,7 +297,7 @@ const TASK_DEFINITIONS = {
     id:    'visual-search',
     type:  'search',
     title: 'Transit Network Analysis',
-    instructions: 'Study the transit map and answer the question about the optimal route.',
+    instructions: 'Study the transit map and answer the question about the optimal route. You may enter fake information where needed — it will not affect the outcome of the experiment.',
     stimulus_html: `
       <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#eff6ff;font-family:system-ui,sans-serif;position:relative;">
         <div data-aoi="vs-legend" style="position:absolute;top:36px;right:36px;padding:12px;background:#fff;border:1px solid #d1d5db;border-radius:8px;font-size:12px;z-index:1;">
@@ -366,7 +366,7 @@ const TASK_DEFINITIONS = {
     id:    'instruction-following',
     type:  'following',
     title: 'Router Configuration',
-    instructions: 'Configure the router: set Security Type to WPA3, enter DNS 8.8.8.8, then click Save Changes.',
+    instructions: 'Configure the router: set Security Type to WPA3, enter DNS 8.8.8.8, then click Save Changes. You may enter fake information where needed — it will not affect the outcome of the experiment.',
     stimulus_html: `
       <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#eef2ff;font-family:system-ui,sans-serif;">
         <div style="max-width:700px;margin:0 auto;">
@@ -433,7 +433,7 @@ const TASK_DEFINITIONS = {
     id:    'reading-inference',
     type:  'reading',
     title: 'Pharmacokinetics: Drug Absorption & Metabolism',
-    instructions: 'Read the passage carefully, then answer all comprehension and inference questions.',
+    instructions: 'Read the passage carefully, then answer all comprehension and inference questions. You may enter fake information where needed — it will not affect the outcome of the experiment.',
     stimulus_html: `
       <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#f7fee7;font-family:system-ui,sans-serif;max-width:800px;line-height:1.8;">
         <div data-aoi="ri-p1" style="margin-bottom:16px;"><p style="margin:0;color:#1f2937;"><strong>Drug absorption</strong> occurs when a pharmaceutical compound enters the bloodstream from its site of administration. For oral medications, this process begins in the gastrointestinal tract where the drug dissolves and crosses the intestinal epithelium through passive diffusion, active transport, or carrier-mediated mechanisms. The rate and extent of absorption depend on drug solubility, pH stability, and intestinal surface area. Factors such as food intake, gastric pH, and individual genetic variations significantly influence bioavailability — the fraction of the administered dose that reaches systemic circulation.</p></div>

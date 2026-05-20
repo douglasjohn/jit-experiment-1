@@ -2,6 +2,7 @@ export function renderAppShell() {
   document.querySelector('#app').innerHTML = `
     <section id="screen-loading"></section>
     <section id="screen-prolific-welcome"></section>
+    <section id="screen-camera-recording-notice"></section>
     <section id="screen-consent"></section>
     <section id="screen-demographics"></section>
     <section id="screen-env-check"></section>

@@ -41,7 +41,7 @@ export function renderProlificWelcomeScreen() {
           id="prolific-welcome-continue"
           style="padding:14px 28px;border:none;border-radius:12px;background:#4f46e5;color:#fff;font-size:16px;font-weight:600;cursor:pointer;"
         >
-          Continue to Consent →
+          Continue
         </button>
       </div>
     </div>
@@ -49,6 +49,6 @@ export function renderProlificWelcomeScreen() {
 
   const btn = document.getElementById('prolific-welcome-continue');
   btn?.addEventListener('click', () => {
-    showScreen('screen-consent');
+    showScreen('screen-camera-recording-notice');
   });
 }

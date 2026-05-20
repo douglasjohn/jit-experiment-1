@@ -1,179 +1,166 @@
 import { sessionData } from '../../experiment/session';
 import { showScreen } from '../../experiment/router';
 
-const DIMENSIONS = [
-  {
-    id: 'mental',
-    label: 'Mental Demand',
-    low: 'Low',
-    high: 'High',
-    description: 'How much mental and perceptual activity was required (e.g. thinking, deciding, calculating, remembering, looking, searching, etc)? Was the task easy or demanding, simple or complex, exacting or forgiving?'
-  },
-  {
-    id: 'physical',
-    label: 'Physical Demand',
-    low: 'Low',
-    high: 'High',
-    description: 'How much physical activity was required (e.g. pushing, pulling, turning, controlling, activating, etc)? Was the task easy or demanding, slow or brisk, slack or strenuous, restful or laborious?'
-  },
-  {
-    id: 'temporal',
-    label: 'Temporal Demand',
-    low: 'Low',
-    high: 'High',
-    description: 'How much time pressure did you feel due to the rate of pace at which the tasks or task elements occurred? Was the pace slow and leisurely or rapid and frantic?'
-  },
-  {
-    id: 'performance',
-    label: 'Performance',
-    low: 'Good',
-    high: 'Poor',
-    description: 'How successful were you in accomplishing the goals of the task? Was your performance perfect, adequate, or poor?'
-  },
-  {
-    id: 'effort',
-    label: 'Effort',
-    low: 'Low',
-    high: 'High',
-    description: 'How hard did you have to work mentally and physically to accomplish your level of performance?'
-  },
-  {
-    id: 'frustration',
-    label: 'Frustration',
-    low: 'Low',
-    high: 'High',
-    description: 'How insecure, discouraged, irritated, stressed, and annoyed were you during the task?'
-  },
+const scale = [
+  'Mental Demand',
+  'Physical Demand',
+  'Temporal Demand',
+  'Performance',
+  'Effort',
+  'Frustration',
+];
+
+const left = ['Low', 'Low', 'Low', 'Good', 'Low', 'Low'];
+const right = ['High', 'High', 'High', 'Poor', 'High', 'High'];
+const definitions = [
+  'How much mental and perceptual activity was required (e.g. thinking, deciding, calculating, remembering, looking, searching, etc)? Was the task easy or demanding, simple or complex, exacting or forgiving?',
+  'How much physical activity was required (e.g. pushing, pulling, turning, controlling, activating, etc)? Was the task easy or demanding, slow or brisk, slack or strenuous, restful or laborious?',
+  'How much time pressure did you feel due to the rate of pace at which the tasks or task elements occurred? Was the pace slow and leisurely or rapid and frantic?',
+  'How successful do you think you were in accomplishing the goals of the task set by the experimenter (or yourself)? How satisfied were you with your performance in accomplishing these goals?',
+  'How hard did you have to work (mentally and physically) to accomplish your level of performance?',
+  'How insecure, discouraged, irritated, stressed and annoyed versus secure, gratified, content, relaxed and complacent did you feel during the task?',
 ];
 
 const SCALE_VALUES = Array.from({ length: 20 }, (_, index) => (index + 1) * 5);
-let selectedRatings = {};
+let ratings = [];
 
 export function renderNasaTlxScreen() {
   const el = document.getElementById('screen-nasatlx');
   if (!el) return;
 
-  selectedRatings = {};
+  ratings = Array(scale.length).fill(null);
 
-  const scalesHtml = DIMENSIONS.map((dim, dimIndex) => {
-    const topCells = SCALE_VALUES.map((value) => `
-      <td
-        id="t_${dimIndex}_${value}"
-        class="top${value % 10 === 5 ? '1' : '2'}"
-        data-dim-index="${dimIndex}"
-        data-value="${value}"
-        onmouseup="scaleClick(${dimIndex}, ${value});"
-        style="width:5%; height:18px; cursor:pointer; border:1px solid #d1d5db; background:#FFFFFF;"
-      ></td>
-    `).join('');
-
-    const bottomCells = SCALE_VALUES.map((value) => `
-      <td
-        id="b_${dimIndex}_${value}"
-        class="bottom"
-        data-dim-index="${dimIndex}"
-        data-value="${value}"
-        onmouseup="scaleClick(${dimIndex}, ${value});"
-        style="width:5%; height:18px; cursor:pointer; border:1px solid #d1d5db; background:#FFFFFF;"
-      ></td>
-    `).join('');
-
-    return `
-      <div style="margin-bottom:32px; padding:20px; background:#f9fafb; border-radius:14px; border:1px solid #e5e7eb;">
-        <div style="margin-bottom:16px; font-size:18px; font-weight:700; color:#111827;">${dim.label}</div>
-        <div class="ratingScale" id="scale-${dim.id}" style="overflow-x:auto;">
-          <table style="width:100%; border-collapse:collapse;">
-            <tbody>
-              <tr>
-                <td colspan="20" style="padding:10px 0; text-align:center; font-weight:700; color:#111827; border-bottom:1px solid #d1d5db;">${dim.label}</td>
-              </tr>
-              <tr>
-                ${topCells}
-              </tr>
-              <tr>
-                ${bottomCells}
-              </tr>
-              <tr>
-                <td colspan="10" style="padding-top:8px; font-size:13px; color:#4b5563; text-align:left;">${dim.low}</td>
-                <td colspan="10" style="padding-top:8px; font-size:13px; color:#4b5563; text-align:right;">${dim.high}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div style="margin-top:14px; font-size:14px; color:#4b5563; line-height:1.7;">${dim.description}</div>
-      </div>
-    `;
-  }).join('');
+  const scaleHtml = scale.map((_, index) => getScaleHTML(index)).join('');
 
   el.innerHTML = `
     <style>
-      .ratingScale td.selected { background:#c7d2fe !important; }
+      @import url('https://fonts.googleapis.com/css?family=Muli');
+      #screen-nasatlx { font-family: 'Muli', Arial, sans-serif; color: black; }
+      #screen-nasatlx .panel { position: relative; left: auto; top: auto; transform: none; margin: 30px auto; padding: 10px; color: black; font: 13px 'Muli'; border: 2px solid black; width: 500px; text-align: center; background: #fff; }
+      #screen-nasatlx h1 { color: black; font: 30px 'Muli'; padding: 0; margin: 0 0 12px; text-align: center; }
+      #screen-nasatlx p { font: 13px 'Muli'; padding: 5px; text-align: center; margin: 0; }
+      #screen-nasatlx .formInstructions { margin: 10px; font-style: italic; }
+      #screen-nasatlx .ratingScale { display: -webkit-inline-box; margin: 10px 0; }
+      #screen-nasatlx table.scale { margin: 0; padding: 0; border-collapse: collapse; }
+      #screen-nasatlx td.bottom, #screen-nasatlx td.top1, #screen-nasatlx td.top2 { width: 0.6cm; height: 0.4cm; margin: 0; padding: 0; }
+      #screen-nasatlx td.bottom { border-bottom: 1px solid black; border-left: 1px solid black; border-right: 1px solid black; }
+      #screen-nasatlx td.top1 { border-top: 1px solid black; border-left: 1px solid black; }
+      #screen-nasatlx td.top2 { border-top: 1px solid black; border-right: 1px solid black; }
+      #screen-nasatlx td.heading { font: bold 14px 'Muli'; text-align: center; padding: 4px 0; }
+      #screen-nasatlx td.left, #screen-nasatlx td.right { font: 14px 'Muli'; padding-top: 8px; }
+      #screen-nasatlx td.right { text-align: right; }
+      #screen-nasatlx td.def { width: 300px; padding: 10px; font: 12px 'Muli'; text-align: left; }
+      #screen-nasatlx button { cursor: pointer; font: 14px 'Muli'; padding: 10px 20px; border: 1px solid black; background: white; }
+      #screen-nasatlx button:hover { background: #f3f4f6; }
+      #screen-nasatlx .selected { background: #AAAAAA !important; }
+      #screen-nasatlx .label-row { margin: 18px 0 12px; font-weight: 700; }
+      #screen-nasatlx .description { font-size: 12px; margin: 8px 0 0; line-height: 1.4; }
     </style>
-    <div style="max-width:840px; margin:0 auto; padding:32px 24px;">
-      <h1 style="margin:0 0 12px; font-size:32px; color:#111827;">Workload Assessment</h1>
-      <p style="margin:0 0 28px; color:#4b5563; font-size:16px; line-height:1.7;">
-        You have completed the tasks. Please rate your experience on each of the following scales before finishing the study.
-      </p>
-      <div id="nasatlx-form" style="display:grid; gap:0;">
-        ${scalesHtml}
-        <button
-          id="nasatlx-submit"
-          type="button"
-          style="margin-top:16px; padding:14px 32px; background:#059669; color:#fff; border:none; border-radius:10px; font-size:16px; font-weight:600; cursor:pointer; transition:background 0.2s;"
-          onmouseover="this.style.background='#047857'"
-          onmouseout="this.style.background='#059669'"
-        >
-          Submit &amp; Continue
-        </button>
-      </div>
+
+    <div class="panel wide">
+      <h1>NASA Task Load Index</h1>
+      <p class="formInstructions">Click on each scale at the point that best indicates your experience of the task.</p>
+      ${scaleHtml}
+      <button id="nasatlx-submit">Submit & Continue</button>
     </div>
   `;
 
   window.scaleClick = _scaleClick;
-  DIMENSIONS.forEach((_, dimIndex) => _scaleClick(dimIndex, 50));
   document.getElementById('nasatlx-submit').onclick = _handleSubmit;
 }
 
-function _scaleClick(dimIndex, value) {
-  const dimId = DIMENSIONS[dimIndex]?.id;
-  if (!dimId) return;
+function getScaleHTML(index) {
+  const topCells = SCALE_VALUES.map((value) => `
+    <td
+      id="t_${index}_${value}"
+      class="top${value % 10 === 5 ? '1' : '2'}"
+      onmouseup="scaleClick(${index}, ${value});"
+      bgcolor="#FFFFFF"
+      style="cursor:pointer;"
+    ></td>
+  `).join('');
 
-  selectedRatings[dimId] = value;
+  const bottomCells = SCALE_VALUES.map((value) => `
+    <td
+      id="b_${index}_${value}"
+      class="bottom"
+      onmouseup="scaleClick(${index}, ${value});"
+      bgcolor="#FFFFFF"
+      style="cursor:pointer;"
+    ></td>
+  `).join('');
 
-  const wrapper = document.getElementById(`scale-${dimId}`);
-  if (!wrapper) return;
+  return `
+    <div style="margin-bottom: 24px; text-align:left;">
+      <div class="label-row">${scale[index]}</div>
+      <div class="ratingScale" id="scale${index}">
+        <table class="scale"><tbody>
+          <tr>${topCells}</tr>
+          <tr>${bottomCells}</tr>
+          <tr>
+            <td colspan="10" class="left">${left[index]}</td>
+            <td colspan="10" class="right">${right[index]}</td>
+          </tr>
+        </tbody></table>
+      </div>
+      <div class="def">${definitions[index]}</div>
+    </div>
+  `;
+}
 
-  wrapper.querySelectorAll('td[data-dim-index="' + dimIndex + '"]').forEach((cell) => {
-    cell.classList.remove('selected');
-    cell.style.backgroundColor = cell.getAttribute('bgcolor') || '#FFFFFF';
-  });
+function _scaleClick(index, val) {
+  ratings[index] = val;
 
-  const topCell = document.getElementById(`t_${dimIndex}_${value}`);
-  const bottomCell = document.getElementById(`b_${dimIndex}_${value}`);
-  [topCell, bottomCell].forEach((cell) => {
-    if (cell) {
-      cell.classList.add('selected');
-      cell.style.backgroundColor = '#c7d2fe';
+  for (let i = 5; i <= 100; i += 5) {
+    const topId = `t_${index}_${i}`;
+    const bottomId = `b_${index}_${i}`;
+    const topCell = document.getElementById(topId);
+    const bottomCell = document.getElementById(bottomId);
+    if (topCell) {
+      topCell.classList.remove('selected');
+      topCell.bgColor = '#FFFFFF';
     }
-  });
+    if (bottomCell) {
+      bottomCell.classList.remove('selected');
+      bottomCell.bgColor = '#FFFFFF';
+    }
+  }
+
+  const selectedTop = document.getElementById(`t_${index}_${val}`);
+  const selectedBottom = document.getElementById(`b_${index}_${val}`);
+  if (selectedTop) {
+    selectedTop.classList.add('selected');
+    selectedTop.bgColor = '#AAAAAA';
+  }
+  if (selectedBottom) {
+    selectedBottom.classList.add('selected');
+    selectedBottom.bgColor = '#AAAAAA';
+  }
 }
 
 function _handleSubmit() {
-  const missingDimensions = DIMENSIONS.filter((dim) => selectedRatings[dim.id] == null);
-  if (missingDimensions.length > 0) {
-    alert('Please select a rating for every dimension before continuing.');
+  const missing = ratings.map((value, index) => (value == null ? index : null)).filter((item) => item !== null);
+  if (missing.length > 0) {
+    alert('Please select a value for every NASA-TLX scale before continuing.');
     return;
   }
 
   sessionData.nasaTLX = {
     timestamp: Date.now(),
-    responses: { ...selectedRatings },
+    responses: {
+      mental: ratings[0],
+      physical: ratings[1],
+      temporal: ratings[2],
+      performance: ratings[3],
+      effort: ratings[4],
+      frustration: ratings[5],
+    },
   };
 
   sessionData.events.push({
     type: 'nasatlx-submit',
     timestamp: Date.now(),
-    responses: { ...selectedRatings },
+    responses: { ...sessionData.nasaTLX.responses },
   });
 
   showScreen('screen-debrief');

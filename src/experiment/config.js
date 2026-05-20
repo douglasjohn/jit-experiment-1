@@ -20,7 +20,7 @@ export const CONFIG = {
    *
    * Example: 'https://app.prolific.com/submissions/complete?cc=XXXXXXXX'
    */
-  PROLIFIC_COMPLETION_URL: 'https://app.prolific.com/submissions/complete?cc=CYBY3LPS',
+  PROLIFIC_COMPLETION_URL: 'https://app.prolific.com/submissions/complete?cc=CEJOJZ3V',
 
   /**
    * Server endpoint that receives the JSON data payload via HTTP POST.

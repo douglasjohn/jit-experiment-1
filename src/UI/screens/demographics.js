@@ -138,6 +138,57 @@ export function renderDemographicsScreen() {
             </label>
           </div>
         </section>
+
+        <section>
+          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;text-align:left;">I can usually complete unfamiliar tasks on websites without help.</h2>
+          <div style="display:grid;gap:10px;">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:#475569;margin-bottom:6px;">
+              <span>Strongly disagree</span>
+              <span>Strongly agree</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;">
+              ${[1,2,3,4,5,6,7].map(value => `
+                <label style="display:flex;flex-direction:column;align-items:center;cursor:pointer;font-size:13px;">
+                  <input type="radio" name="demo-unfamiliar-task" value="${value}" style="width:16px;height:16px;" />
+                  <span style="margin-top:6px;color:#1f2937;">${value}</span>
+                </label>`).join('')}
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;text-align:left;">When a website is confusing or poorly designed, I can usually figure out how to proceed.</h2>
+          <div style="display:grid;gap:10px;">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:#475569;margin-bottom:6px;">
+              <span>Strongly disagree</span>
+              <span>Strongly agree</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;">
+              ${[1,2,3,4,5,6,7].map(value => `
+                <label style="display:flex;flex-direction:column;align-items:center;cursor:pointer;font-size:13px;">
+                  <input type="radio" name="demo-website-figure-out" value="${value}" style="width:16px;height:16px;" />
+                  <span style="margin-top:6px;color:#1f2937;">${value}</span>
+                </label>`).join('')}
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;text-align:left;">I am confident troubleshooting problems I encounter while using websites.</h2>
+          <div style="display:grid;gap:10px;">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:#475569;margin-bottom:6px;">
+              <span>Strongly disagree</span>
+              <span>Strongly agree</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;">
+              ${[1,2,3,4,5,6,7].map(value => `
+                <label style="display:flex;flex-direction:column;align-items:center;cursor:pointer;font-size:13px;">
+                  <input type="radio" name="demo-troubleshooting" value="${value}" style="width:16px;height:16px;" />
+                  <span style="margin-top:6px;color:#1f2937;">${value}</span>
+                </label>`).join('')}
+            </div>
+          </div>
+        </section>
       </div>
 
       <div id="demo-error" style="display:none;margin-top:20px;padding:14px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;color:#991b1b;font-size:15px;"></div>
@@ -172,9 +223,12 @@ export function renderDemographicsScreen() {
     const gender = screen.querySelector('input[name="demo-gender"]:checked')?.value;
     const education = screen.querySelector('input[name="demo-education"]:checked')?.value;
     const english = screen.querySelector('input[name="demo-english"]:checked')?.value;
+    const unfamiliarTask = screen.querySelector('input[name="demo-unfamiliar-task"]:checked')?.value;
+    const websiteFigureOut = screen.querySelector('input[name="demo-website-figure-out"]:checked')?.value;
+    const troubleshooting = screen.querySelector('input[name="demo-troubleshooting"]:checked')?.value;
     const genderSelf = genderSelfInput?.value.trim() || null;
 
-    if (!age || !gender || !education || !english) {
+    if (!age || !gender || !education || !english || !unfamiliarTask || !websiteFigureOut || !troubleshooting) {
       errorEl.textContent = 'Please answer all questions before continuing.';
       errorEl.style.display = 'block';
       return;
@@ -194,6 +248,9 @@ export function renderDemographicsScreen() {
       gender_self_description: gender === 'Prefer to self describe' ? genderSelf : null,
       education_level: education,
       english_proficiency: english,
+      website_unfamiliar_task_confidence: Number(unfamiliarTask),
+      website_confusion_recovery_confidence: Number(websiteFigureOut),
+      website_troubleshooting_confidence: Number(troubleshooting),
     };
 
     sessionData.events.push({

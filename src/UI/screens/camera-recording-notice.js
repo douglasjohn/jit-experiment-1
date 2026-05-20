@@ -62,9 +62,6 @@ export function renderCameraRecordingNoticeScreen() {
 
   disagreeBtn?.addEventListener('click', () => {
     disagreeHelp.style.display = 'block';
-    continueBtn.disabled = true;
-    disagreeBtn.disabled = true;
-    disagreeBtn.style.cursor = 'not-allowed';
-    disagreeBtn.style.opacity = '0.65';
+    disagreeHelp.textContent = 'If you do not agree, please close this browser tab. If you change your mind, you can still press "I Agree, Continue to Consent".';
   });
 }

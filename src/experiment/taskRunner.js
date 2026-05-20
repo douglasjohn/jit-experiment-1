@@ -366,7 +366,7 @@ const TASK_DEFINITIONS = {
     id:    'instruction-following',
     type:  'following',
     title: 'Router Configuration',
-    instructions: 'Configure the router: click the 🔒 tab and enter DNS 8.8.8.8, then click Save Changes. You may enter fake information where needed — it will not affect the outcome of the experiment.',
+    instructions: 'Configure the router to the following specifications: security type=WPA3, DNS=8.8.8.8, then click Save Changes. You may enter fake information where needed — it will not affect the outcome of the experiment.',
     stimulus_html: `
       <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#eef2ff;font-family:system-ui,sans-serif;">
         <div style="max-width:700px;margin:0 auto;">

@@ -7,63 +7,124 @@ export function renderNasaTlxScreen() {
   if (!el) return;
 
   const dimensions = [
-    { id: 'mental',      label: 'Mental Demand',    low: 'Low',  high: 'High' },
-    { id: 'physical',    label: 'Physical Demand',   low: 'Low',  high: 'High' },
-    { id: 'temporal',    label: 'Temporal Demand',   low: 'Low',  high: 'High' },
-    { id: 'performance', label: 'Performance',       low: 'Good', high: 'Poor' },
-    { id: 'effort',      label: 'Effort',            low: 'Low',  high: 'High' },
-    { id: 'frustration', label: 'Frustration',       low: 'Low',  high: 'High' },
+    {
+      id: 'mental',
+      label: 'Mental Demand',
+      low: 'Low',
+      high: 'High',
+      description: 'How much mental and perceptual activity was required (e.g. thinking, deciding, calculating, remembering, looking, searching, etc)? Was the task easy or demanding, simple or complex, exacting or forgiving?'
+    },
+    {
+      id: 'physical',
+      label: 'Physical Demand',
+      low: 'Low',
+      high: 'High',
+      description: 'How much physical activity was required? Was the task easy or demanding, slack or strenuous, restful or laborious?'
+    },
+    {
+      id: 'temporal',
+      label: 'Temporal Demand',
+      low: 'Low',
+      high: 'High',
+      description: 'How much time pressure did you feel due to the pace or rate at which the tasks or task elements occurred? Was the pace slow and leisurely or rapid and frantic?'
+    },
+    {
+      id: 'performance',
+      label: 'Performance',
+      low: 'Good',
+      high: 'Poor',
+      description: 'How successful were you in accomplishing what you were asked to do? Was your performance perfect, adequate, or poor?'
+    },
+    {
+      id: 'effort',
+      label: 'Effort',
+      low: 'Low',
+      high: 'High',
+      description: 'How hard did you have to work to accomplish your level of performance?'
+    },
+    {
+      id: 'frustration',
+      label: 'Frustration',
+      low: 'Low',
+      high: 'High',
+      description: 'How insecure, discouraged, irritated, stressed, and annoyed were you?'
+    },
   ];
 
-  const sliderRows = dimensions.map(dim => {
-    // Physical demand is pre-set to a low value for computer-based tasks
-    // const isPhysical     = dim.id === 'physical';
-    // const defaultValue   = isPhysical ? '5' : '50';
-    // const disabledAttr   = isPhysical ? 'disabled' : '';
-    // const disabledStyle  = isPhysical ? 'opacity:0.6;' : '';
-    // const noteHTML       = isPhysical
-    //   ? `<div style="margin-top:6px; font-size:13px; color:#6b7280; font-style:italic;">
-    //        Pre-set to a low value — this is a computer-based study with minimal physical demand.
-    //      </div>`
-    //   : '';
-    const defaultValue   = '50';
-    const disabledAttr   = '';
-    const disabledStyle  = '';
-    const noteHTML       = '';
+  const values = Array.from({ length: 20 }, (_, i) => (i + 1) * 5);
+  const defaultValue = 50;
+
+  const scaleRows = dimensions.map((dim, dimIndex) => {
+    const cells = values.map((value) => {
+      const topStyle = value === 100 ? 'background:#AAAAAA;' : 'background:#FFFFFF;';
+      const bottomStyle = value === 100 ? 'background:#AAAAAA;' : 'background:#FFFFFF;';
+      return {
+        value,
+        topStyle,
+        bottomStyle,
+      };
+    });
 
     return `
-      <div style="margin-bottom:20px; padding:16px; background:#f9fafb; border-radius:8px; border:1px solid #e5e7eb;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <label for="${dim.id}" style="font-weight:600; color:#1f2937;">${dim.label}</label>
-          <span id="${dim.id}-value" style="font-weight:700; color:#4f46e5; font-size:16px; min-width:32px; text-align:right;">${defaultValue}</span>
-        </div>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <span style="font-size:12px; color:#6b7280; min-width:36px;">${dim.low}</span>
-          <input
-            type="range"
-            id="${dim.id}"
-            min="0" max="100" step="5"
-            value="${defaultValue}"
-            ${disabledAttr}
-            style="flex:1; cursor:pointer; accent-color:#4f46e5; ${disabledStyle}"
-            oninput="document.getElementById('${dim.id}-value').textContent = this.value"
-          />
-          <span style="font-size:12px; color:#6b7280; min-width:36px; text-align:right;">${dim.high}</span>
-        </div>
-        ${noteHTML}
+      <div style="margin-bottom:32px; padding:18px; background:#f9fafb; border-radius:12px; border:1px solid #e5e7eb;">
+        <div style="font-size:16px; font-weight:700; color:#111827; margin-bottom:14px;">${dim.label}</div>
+        <table class="ratingScale" id="scale-${dim.id}" style="width:100%; border-collapse:collapse;">
+          <tbody>
+            <tr>
+              <td colspan="20" class="heading" style="padding:10px 0; font-weight:700; text-align:center; border-bottom:1px solid #d1d5db; color:#1f2937;">${dim.label}</td>
+            </tr>
+            <tr>
+              ${cells.map((cell) => `
+                <td
+                  id="t_${dimIndex}_${cell.value}"
+                  class="top${cell.value % 10 === 5 ? '1' : '2'}"
+                  data-scale="true"
+                  data-dim-index="${dimIndex}"
+                  data-value="${cell.value}"
+                  onmouseup="scaleClick(${dimIndex}, ${cell.value});"
+                  bgcolor="#FFFFFF"
+                  style="width:5%; height:18px; cursor:pointer; border:1px solid #d1d5db; ${cell.topStyle}"
+                ></td>
+              `).join('')}
+            </tr>
+            <tr>
+              ${cells.map((cell) => `
+                <td
+                  id="b_${dimIndex}_${cell.value}"
+                  class="bottom"
+                  data-scale="true"
+                  data-dim-index="${dimIndex}"
+                  data-value="${cell.value}"
+                  onmouseup="scaleClick(${dimIndex}, ${cell.value});"
+                  bgcolor="#FFFFFF"
+                  style="width:5%; height:18px; cursor:pointer; border:1px solid #d1d5db; ${cell.bottomStyle}"
+                ></td>
+              `).join('')}
+            </tr>
+            <tr>
+              <td colspan="10" class="left" style="padding-top:8px; font-size:13px; color:#4b5563; text-align:left;">${dim.low}</td>
+              <td colspan="10" class="right" style="padding-top:8px; font-size:13px; color:#4b5563; text-align:right;">${dim.high}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-top:14px; font-size:14px; color:#4b5563; line-height:1.6;">${dim.description}</div>
+        <input type="hidden" id="${dim.id}" value="${defaultValue}">
       </div>
     `;
   }).join('');
 
   el.innerHTML = `
-    <div style="max-width:700px; margin:0 auto; padding:32px 24px;">
+    <style>
+      .ratingScale td.selected { background:#c7d2fe !important; }
+    </style>
+    <div style="max-width:760px; margin:0 auto; padding:32px 24px;">
       <h1 style="margin:0 0 8px; font-size:28px; color:#111827;">Workload Assessment</h1>
       <p style="margin:0 0 28px; color:#6b7280; font-size:15px; line-height:1.6;">
-        Thinking about the study overall, rate your experience on each dimension.
+        Thinking about the study overall, rate your experience on each dimension by clicking the scale cell that best matches your answer.
       </p>
 
       <div id="nasatlx-form" style="display:grid; gap:0;">
-        ${sliderRows}
+        ${scaleRows}
 
         <button
           id="nasatlx-submit"
@@ -85,7 +146,34 @@ export function renderNasaTlxScreen() {
     </div>
   `;
 
+  window.scaleClick = _scaleClick;
+  dimensions.forEach((_, dimIndex) => _scaleClick(dimIndex, defaultValue));
   document.getElementById('nasatlx-submit').onclick = _handleSubmit;
+}
+
+function _scaleClick(dimIndex, value) {
+  const dimId = ['mental', 'physical', 'temporal', 'performance', 'effort', 'frustration'][dimIndex];
+  if (!dimId) return;
+
+  const hiddenInput = document.getElementById(dimId);
+  if (hiddenInput) hiddenInput.value = value;
+
+  const wrapper = document.getElementById(`scale-${dimId}`);
+  if (!wrapper) return;
+
+  wrapper.querySelectorAll('td[data-scale]').forEach((cell) => {
+    cell.classList.remove('selected');
+    cell.style.backgroundColor = cell.getAttribute('bgcolor') || '#FFFFFF';
+  });
+
+  const topCell = document.getElementById(`t_${dimIndex}_${value}`);
+  const bottomCell = document.getElementById(`b_${dimIndex}_${value}`);
+  [topCell, bottomCell].forEach((cell) => {
+    if (cell) {
+      cell.classList.add('selected');
+      cell.style.backgroundColor = '#c7d2fe';
+    }
+  });
 }
 
 function _handleSubmit() {

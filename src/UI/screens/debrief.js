@@ -1,5 +1,6 @@
 import { sessionData } from '../../experiment/session';
 import { CONFIG } from '../../experiment/config';
+import { launchReplay } from '../../replay/replayPlayer';
 
 const RESEARCHER_EMAIL = 'jd2117@cam.ac.uk';
 
@@ -73,6 +74,7 @@ function _assemblePayload() {
     // ── Behavioural data ──────────────────────────────────────────────────────
     mouseEvents:        sessionData.mouseEvents,
     clickEvents:        sessionData.clickEvents,
+    scrollEvents:       sessionData.scrollEvents,   // ← new: required for scroll-aware replay
 
     // ── Task responses & probes ───────────────────────────────────────────────
     taskResponses:      sessionData.taskResponses,
@@ -112,7 +114,7 @@ async function _submitSessionData() {
       body:    JSON.stringify(payload),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    _showDebriefSuccess();
+    _showDebriefSuccess(payload);
   } catch (error) {
     console.error('Data submission failed:', error);
     _showDownloadFallback();
@@ -121,7 +123,7 @@ async function _submitSessionData() {
 
 // ── Success screen ────────────────────────────────────────────────────────────
 
-function _showDebriefSuccess() {
+function _showDebriefSuccess(payload) {
   const el = document.getElementById('screen-debrief');
   if (!el) return;
 
@@ -138,7 +140,20 @@ function _showDebriefSuccess() {
       <div id="completion-btn-wrap" style="min-height:60px;display:flex;align-items:center;justify-content:center;">
         <p style="color:#9ca3af;font-size:14px;">Preparing completion link…</p>
       </div>
+      <div style="margin-top:24px;">
+        <button id="debrief-replay-btn" style="
+          padding:10px 22px;border:1px solid #6366f1;border-radius:8px;
+          background:transparent;color:#4f46e5;font-size:14px;font-weight:600;
+          cursor:pointer;transition:all 0.15s;"
+          onmouseover="this.style.background='#eef2ff'" onmouseout="this.style.background='transparent'">
+          🎬 Replay Session
+        </button>
+      </div>
     </div>`;
+
+  // Wire replay button (payload captured in closure)
+  document.getElementById('debrief-replay-btn')
+    .addEventListener('click', () => launchReplay(payload));
 
   setTimeout(() => {
     const wrap = document.getElementById('completion-btn-wrap');
@@ -207,7 +222,7 @@ function _showDownloadFallback() {
         </p>
       </div>
 
-      <div style="margin-top:28px;text-align:center;">
+      <div style="margin-top:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
         ${CONFIG.PROLIFIC_COMPLETION_URL
           ? `<a href="${CONFIG.PROLIFIC_COMPLETION_URL}"
                style="display:inline-block;padding:14px 32px;background:#059669;color:#fff;
@@ -217,6 +232,17 @@ function _showDownloadFallback() {
              </a>`
           : `<p style="color:#6b7280;font-size:14px;">Study complete. You may now close this tab.</p>`
         }
+        <button id="debrief-replay-btn" style="
+          padding:10px 22px;border:1px solid #6366f1;border-radius:8px;
+          background:transparent;color:#4f46e5;font-size:14px;font-weight:600;
+          cursor:pointer;transition:all 0.15s;"
+          onmouseover="this.style.background='#eef2ff'" onmouseout="this.style.background='transparent'">
+          🎬 Replay Session
+        </button>
       </div>
     </div>`;
+
+  // Wire replay button (payload already assembled above)
+  document.getElementById('debrief-replay-btn')
+    .addEventListener('click', () => launchReplay(payload));
 }

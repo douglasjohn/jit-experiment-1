@@ -52,6 +52,7 @@ export const sessionData = {
   // ── Behavioural data ──────────────────────────────────────────────────────
   mouseEvents:              [],   // [{t, x, y, x_norm, y_norm, task_id}]
   clickEvents:              [],   // [{t, x, y, x_norm, y_norm, target, target_id, task_id}]
+  scrollEvents:             [],   // [{t, scrollX, scrollY, target_id, task_id}]  — added for replay
 
   // ── Task & survey responses ───────────────────────────────────────────────
   taskResponses:            [],

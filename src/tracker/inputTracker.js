@@ -14,10 +14,12 @@
 
 import { sessionData } from '../experiment/session';
 
-const MOUSE_THROTTLE_MS = 50;   // sample rate cap
+const MOUSE_THROTTLE_MS  = 50;   // sample rate cap
+const SCROLL_THROTTLE_MS = 50;   // same cadence as mouse
 
 let _active = false;
-let _lastMouseAt = 0;
+let _lastMouseAt  = 0;
+let _lastScrollAt = 0;
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
@@ -27,6 +29,9 @@ export function startInputTracking() {
 
   document.addEventListener('mousemove', _onMouseMove, { passive: true });
   document.addEventListener('click',     _onClick,     { passive: true });
+  // capture:true catches scrolls on inner containers (e.g. overflow:auto divs)
+  // as well as the window.  We handle both in _onScroll.
+  document.addEventListener('scroll',    _onScroll,    { passive: true, capture: true });
 
   sessionData.events.push({
     type:      'input-tracking-start',
@@ -40,6 +45,7 @@ export function stopInputTracking() {
 
   document.removeEventListener('mousemove', _onMouseMove);
   document.removeEventListener('click',     _onClick);
+  document.removeEventListener('scroll',    _onScroll, { capture: true });
 }
 
 // ── Private handlers ─────────────────────────────────────────────────────────
@@ -68,6 +74,28 @@ function _onClick(e) {
     y_norm:    +(e.clientY / window.innerHeight).toFixed(4),
     target:    e.target?.tagName   || null,
     target_id: e.target?.id        || null,
+    task_id:   _currentTaskId(),
+  });
+}
+
+function _onScroll(e) {
+  const now = performance.now();
+  if (now - _lastScrollAt < SCROLL_THROTTLE_MS) return;
+  _lastScrollAt = now;
+
+  // e.target is the element that scrolled (document for window scroll,
+  // or a specific container for inner overflow scrolls).
+  const target    = e.target;
+  const isWindow  = target === document || target === document.documentElement || target === document.body;
+  const scrollX   = isWindow ? window.scrollX : (target.scrollLeft ?? 0);
+  const scrollY   = isWindow ? window.scrollY : (target.scrollTop  ?? 0);
+  const targetId  = isWindow ? '__window__'   : (target.id || target.className || '__unknown__');
+
+  sessionData.scrollEvents.push({
+    t:         Date.now(),
+    scrollX:   Math.round(scrollX),
+    scrollY:   Math.round(scrollY),
+    target_id: targetId,
     task_id:   _currentTaskId(),
   });
 }

@@ -26,7 +26,7 @@ import brokenNavShopImage from '../assets/broken-nav.jpg';
 // TASK DEFINITIONS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TASK_DEFINITIONS = {
+export const TASK_DEFINITIONS = {
 
   // ── 1. Broken navigation ──────────────────────────────────────────────────
   'broken-nav': {

@@ -177,7 +177,7 @@ export class GazeManager {
       timestamp - this._lastGazeLogAt >= GAZE_LOG_INTERVAL_MS
     ) {
       sessionData.gazeLog.push({
-        t:       timestamp,
+        t:       Date.now(),     // epoch ms — aligned with mouseEvents / scrollEvents / events
         x,                       // smoothed, calibration-corrected normalised coord
         y,
         raw_x:   rawX ?? x,      // before EMA smoothing
@@ -194,7 +194,7 @@ export class GazeManager {
       now <= this.rawWindowUntil &&
       timestamp - this._lastRawSampleAt >= GAZE_LOG_INTERVAL_MS
     ) {
-      sessionData.rawGazeWindows.push({ t: timestamp, x, y, task_id: taskId });
+      sessionData.rawGazeWindows.push({ t: Date.now(), x, y, task_id: taskId });
       this._lastRawSampleAt = timestamp;
     }
 

@@ -1,5 +1,6 @@
 import { sessionData } from '../../experiment/session';
 import { CONFIG } from '../../experiment/config';
+import { TASK_DEFINITIONS } from '../../experiment/taskRunner';
 import { launchReplay } from '../../replay/replayPlayer';
 
 const RESEARCHER_EMAIL = 'jd2117@cam.ac.uk';
@@ -89,9 +90,31 @@ function _assemblePayload() {
     // ── Workload ──────────────────────────────────────────────────────────────
     nasaTLX:            sessionData.nasaTLX,
 
-    // ── Full event log ────────────────────────────────────────────────────────
+    // ── Replay-friendly stimulus payload ───────────────────────────────────
+    taskStimuli:        _getTaskStimuli(),
+
+    // ── Full event log ──────────────────────────────────────────────────────
     events:             sessionData.events,
   };
+}
+
+function _getTaskStimuli() {
+  const taskIds = new Set(
+    sessionData.events
+      .filter((evt) => evt.task_id)
+      .map((evt) => evt.task_id)
+  );
+
+  return Array.from(taskIds).reduce((result, taskId) => {
+    const def = TASK_DEFINITIONS[taskId];
+    if (!def) return result;
+    result[taskId] = {
+      title:         def.title,
+      instructions:  def.instructions || null,
+      stimulus_html: def.stimulus_html || null,
+    };
+    return result;
+  }, {});
 }
 
 // ── Submission ────────────────────────────────────────────────────────────────

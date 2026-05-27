@@ -4,9 +4,14 @@ import { launchReplay } from '../../replay/replayPlayer';
 
 const RESEARCHER_EMAIL = 'jd2117@cam.ac.uk';
 
-export function renderDebriefScreen() {
+export function renderDebriefScreen({ placeholder = false } = {}) {
   const el = document.getElementById('screen-debrief');
   if (!el) return;
+
+  if (placeholder) {
+    el.innerHTML = '<div></div>'; // placeholder render only; do not submit session data yet
+    return;
+  }
 
   sessionData.endTime = performance.now();
 

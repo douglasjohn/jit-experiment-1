@@ -61,7 +61,7 @@ window.addEventListener('DOMContentLoaded', () => {
   renderProbeScreen();
   renderTaskCompleteScreen();
   renderNasaTlxScreen();
-  renderDebriefScreen();
+  renderDebriefScreen({ placeholder: true });
 
   // DEV / TESTING SHORTCUT: load a specific screen directly with ?screen=nasatlx
   if (CONFIG.SKIP_TO_SCREEN) {

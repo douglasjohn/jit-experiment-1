@@ -1,5 +1,6 @@
 import { sessionData } from '../../experiment/session';
 import { showScreen } from '../../experiment/router';
+import { renderDebriefScreen } from './debrief';
 
 const scale = [
   'Mental Demand',
@@ -163,5 +164,6 @@ function _handleSubmit() {
     responses: { ...sessionData.nasaTLX.responses },
   });
 
+  renderDebriefScreen();
   showScreen('screen-debrief');
 }

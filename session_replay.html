@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JIT Experiment — Session Replay</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #f8fafc;
+    --surface:  #ffffff;
+    --border:   #e2e8f0;
+    --text:     #0f172a;
+    --muted:    #64748b;
+    --faint:    #94a3b8;
+    --accent:   #4f46e5;
+    --accent-h: #4338ca;
+    --green:    #16a34a;
+    --red:      #dc2626;
+    --amber:    #d97706;
+    --sidebar-w: 260px;
+  }
+
+  html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+
+  /* ── Screens ───────────────────────────────────────────────────────────── */
+  .screen { display: none; height: 100%; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     LOAD SCREEN
+  ════════════════════════════════════════════════════════════════════════ */
+  #load-screen {
+    align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 100%);
+  }
+  .load-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 48px 40px; max-width: 480px; width: 90%;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.08);
+    text-align: center;
+  }
+  .load-card .icon { font-size: 52px; margin-bottom: 20px; line-height: 1; }
+  .load-card h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+  .load-card p { color: var(--muted); font-size: 14px; line-height: 1.65; margin-bottom: 28px; }
+  .drop-zone {
+    border: 2px dashed #c7d2fe; border-radius: 14px;
+    padding: 36px 20px; cursor: pointer; transition: all 0.18s;
+    background: #f5f3ff;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent); background: #eef2ff;
+  }
+  .drop-zone p { margin: 0; color: var(--accent); font-weight: 600; font-size: 15px; }
+  .drop-zone span { display: block; color: var(--muted); font-size: 12px; margin-top: 6px; }
+  #load-error {
+    margin-top: 16px; padding: 12px 16px; border-radius: 10px;
+    background: #fef2f2; border: 1px solid #fecaca;
+    color: var(--red); font-size: 13px; display: none;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     MAIN REPLAY SCREEN
+  ════════════════════════════════════════════════════════════════════════ */
+  #main-screen { background: var(--bg); overflow: hidden; }
+
+  /* ── Top bar ──────────────────────────────────────────────────────────── */
+  #top-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 16px; height: 48px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  #top-bar .logo { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; }
+  #top-bar .sep { color: var(--border); }
+  .pill {
+    padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600;
+    background: #eef2ff; color: var(--accent); white-space: nowrap;
+  }
+  .pill.green { background: #dcfce7; color: var(--green); }
+  .pill.amber { background: #fef3c7; color: var(--amber); }
+  #top-bar .spacer { flex: 1; }
+  #btn-load-new {
+    padding: 5px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+    background: var(--bg); border: 1px solid var(--border); color: var(--muted);
+    cursor: pointer; transition: all 0.12s;
+  }
+  #btn-load-new:hover { background: var(--border); color: var(--text); }
+
+  /* ── Body layout ──────────────────────────────────────────────────────── */
+  #body-layout {
+    display: flex; flex: 1; overflow: hidden; min-height: 0;
+  }
+
+  /* ── Sidebar ──────────────────────────────────────────────────────────── */
+  #sidebar {
+    width: var(--sidebar-w); flex-shrink: 0;
+    background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .sidebar-section { padding: 14px 14px 0; }
+  .sidebar-section h3 {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--faint); margin-bottom: 10px;
+  }
+  .meta-grid { display: grid; gap: 6px; }
+  .meta-row { display: flex; gap: 8px; font-size: 12px; }
+  .meta-row .k { color: var(--muted); flex-shrink: 0; width: 80px; }
+  .meta-row .v { color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  #task-list { flex: 1; overflow-y: auto; padding: 14px; }
+  #task-list h3 {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--faint); margin-bottom: 10px;
+  }
+  .task-item {
+    padding: 10px 12px; border-radius: 10px; cursor: pointer;
+    border: 1px solid transparent; margin-bottom: 6px;
+    transition: all 0.12s; font-size: 13px;
+  }
+  .task-item:hover { background: #f1f5f9; border-color: var(--border); }
+  .task-item.active { background: #eef2ff; border-color: #c7d2fe; }
+  .task-item .t-title { font-weight: 600; color: var(--text); margin-bottom: 4px; line-height: 1.3; }
+  .task-item .t-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+  .task-item .t-badge {
+    font-size: 10px; padding: 1px 7px; border-radius: 99px; font-weight: 600;
+    background: #f1f5f9; color: var(--muted);
+  }
+  .task-item .t-badge.gaze { background: #fdf4ff; color: #a21caf; }
+  .task-item .t-badge.click { background: #fff7ed; color: #c2410c; }
+
+  .sidebar-footer {
+    padding: 12px 14px; border-top: 1px solid var(--border);
+    font-size: 11px; color: var(--faint); text-align: center;
+  }
+
+  /* ── Replay area ──────────────────────────────────────────────────────── */
+  #replay-area {
+    flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
+  }
+
+  /* Controls bar above viewport */
+  #controls-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; background: var(--surface);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .ctrl-group { display: flex; align-items: center; gap: 5px; }
+  .ctrl-label { font-size: 11px; color: var(--faint); white-space: nowrap; }
+  .speed-btn {
+    padding: 3px 9px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--muted); font-size: 12px; cursor: pointer;
+    transition: all 0.1s;
+  }
+  .speed-btn.active, .speed-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .legend { display: flex; gap: 10px; align-items: center; margin-left: auto; }
+  .leg-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+  .leg-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Viewport + overlays */
+  #viewport-wrap {
+    flex: 1; position: relative; background: #e2e8f0; overflow: hidden; min-height: 0;
+  }
+  #replay-iframe {
+    width: 100%; height: 100%; border: none; display: block;
+    background: #fff;
+  }
+  /* Cursor and gaze float above the iframe */
+  #ov-cursor {
+    position: absolute; pointer-events: none; z-index: 10;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: rgba(245, 158, 11, 0.95);
+    border: 2.5px solid #fff;
+    box-shadow: 0 0 0 3px rgba(245,158,11,0.25), 0 2px 4px rgba(0,0,0,0.18);
+    transform: translate(-50%, -50%);
+    display: none;
+  }
+  #ov-gaze {
+    position: absolute; pointer-events: none; z-index: 9;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: rgba(236, 72, 153, 0.5);
+    border: 2px solid rgba(236, 72, 153, 0.85);
+    box-shadow: 0 0 0 5px rgba(236,72,153,0.12);
+    transform: translate(-50%, -50%);
+    display: none;
+  }
+  .click-ripple {
+    position: absolute; pointer-events: none; z-index: 11;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(239, 68, 68, 0.55);
+    transform: translate(-50%, -50%);
+    animation: ripple 0.45s ease-out forwards;
+  }
+  @keyframes ripple {
+    0%   { transform: translate(-50%,-50%) scale(0.5); opacity: 0.8; }
+    100% { transform: translate(-50%,-50%) scale(3.5); opacity: 0; }
+  }
+
+  /* Timeline footer */
+  #timeline {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 14px; background: var(--surface);
+    border-top: 1px solid var(--border); flex-shrink: 0;
+    box-shadow: 0 -1px 3px rgba(0,0,0,0.04);
+  }
+  #btn-play {
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    background: var(--accent); border: none; color: #fff;
+    font-size: 15px; cursor: pointer; transition: background 0.12s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #btn-play:hover { background: var(--accent-h); }
+  #scrubber { flex: 1; accent-color: var(--accent); cursor: pointer; }
+  #time-display {
+    font-size: 12px; color: var(--muted); white-space: nowrap;
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  #kb-hint { font-size: 11px; color: var(--faint); white-space: nowrap; flex-shrink: 0; }
+
+  /* No-data state */
+  #no-task-msg {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; flex-direction: column; gap: 12px; color: var(--muted);
+  }
+  #no-task-msg .icon { font-size: 36px; }
+  #no-task-msg p { font-size: 14px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════
+     LOAD SCREEN
+══════════════════════════════════════════════════════════════ -->
+<div id="load-screen" class="screen active">
+  <div class="load-card">
+    <div class="icon">🎬</div>
+    <h1>Session Replay</h1>
+    <p>Load a session JSON file exported from the JIT experiment to replay mouse, gaze, and scroll behaviour task-by-task.</p>
+    <div class="drop-zone" id="drop-zone">
+      <p>Drop session JSON here</p>
+      <span>or click to browse</span>
+    </div>
+    <div id="load-error"></div>
+  </div>
+  <input type="file" id="file-input" accept=".json,application/json" style="display:none">
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     MAIN REPLAY SCREEN
+══════════════════════════════════════════════════════════════ -->
+<div id="main-screen" class="screen">
+
+  <!-- Top bar -->
+  <div id="top-bar">
+    <span class="logo">🎬 JIT Replay</span>
+    <span class="sep">|</span>
+    <span id="top-pid" class="pill"></span>
+    <span id="top-date" class="pill amber"></span>
+    <span id="top-gaze-status" class="pill"></span>
+    <div class="spacer"></div>
+    <button id="btn-load-new">↩ Load different session</button>
+  </div>
+
+  <div id="body-layout">
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <div class="sidebar-section">
+        <h3>Session</h3>
+        <div class="meta-grid" id="meta-grid"></div>
+      </div>
+
+      <div id="task-list">
+        <h3>Tasks</h3>
+        <div id="task-items"></div>
+      </div>
+
+      <div class="sidebar-footer">Space · ←→ ±5 s · Esc close task</div>
+    </div>
+
+    <!-- Replay area -->
+    <div id="replay-area">
+
+      <!-- Controls bar -->
+      <div id="controls-bar">
+        <div class="ctrl-group">
+          <span class="ctrl-label">Speed</span>
+          <button class="speed-btn" data-speed="0.25">¼×</button>
+          <button class="speed-btn" data-speed="0.5">½×</button>
+          <button class="speed-btn active" data-speed="1">1×</button>
+          <button class="speed-btn" data-speed="2">2×</button>
+          <button class="speed-btn" data-speed="4">4×</button>
+        </div>
+        <div class="legend">
+          <div class="leg-item">
+            <div class="leg-dot" style="background:rgba(245,158,11,0.95)"></div> Mouse
+          </div>
+          <div class="leg-item">
+            <div class="leg-dot" style="background:rgba(236,72,153,0.7)"></div> Gaze
+          </div>
+          <div class="leg-item">
+            <div class="leg-dot" style="background:rgba(239,68,68,0.55);border-radius:2px"></div> Click
+          </div>
+          <span id="ctrl-task-label" style="font-size:12px;color:var(--muted);margin-left:8px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        </div>
+      </div>
+
+      <!-- Viewport -->
+      <div id="viewport-wrap">
+        <iframe id="replay-iframe" sandbox="allow-same-origin allow-scripts"></iframe>
+        <div id="ov-cursor"></div>
+        <div id="ov-gaze"></div>
+        <div id="no-task-msg">
+          <div class="icon">👆</div>
+          <p>Select a task from the sidebar to begin.</p>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div id="timeline">
+        <button id="btn-play">▶</button>
+        <input id="scrubber" type="range" min="0" max="10000" value="0" step="1">
+        <span id="time-display">0:00 / 0:00</span>
+        <span id="kb-hint">Space · ← → · Esc</span>
+      </div>
+
+    </div><!-- /replay-area -->
+  </div><!-- /body-layout -->
+</div><!-- /main-screen -->
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+let payload        = null;    // the loaded JSON
+let taskBoundaries = [];      // [{task_id, title, start, end, mouse, scroll, gaze, clicks}]
+
+// Playback state
+let currentTask    = null;    // one of taskBoundaries entries
+let isPlaying      = false;
+let speedFactor    = 1;
+let playbackMs     = 0;
+let taskDurationMs = 1;
+let rafId          = null;
+let lastRafTime    = null;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOAD SCREEN
+// ═══════════════════════════════════════════════════════════════════════════
+
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const loadError = document.getElementById('load-error');
+
+dropZone.addEventListener('click', () => fileInput.click());
+
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) readFile(file);
+});
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) readFile(fileInput.files[0]);
+  fileInput.value = '';
+});
+
+document.getElementById('btn-load-new').addEventListener('click', () => {
+  pausePlayback();
+  showScreen('load-screen');
+  payload = null;
+  currentTask = null;
+});
+
+function readFile(file) {
+  if (!file.name.endsWith('.json') && file.type !== 'application/json') {
+    showError('Please select a .json session file.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      loadSession(data);
+    } catch(err) {
+      showError('Could not parse JSON: ' + err.message);
+    }
+  };
+  reader.onerror = () => showError('Failed to read file.');
+  reader.readAsText(file);
+}
+
+function showError(msg) {
+  loadError.textContent = msg;
+  loadError.style.display = 'block';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SESSION LOADING
+// ═══════════════════════════════════════════════════════════════════════════
+
+function loadSession(data) {
+  if (!data.events || !Array.isArray(data.events)) {
+    showError('Invalid session file: missing events array.');
+    return;
+  }
+
+  payload = data;
+  loadError.style.display = 'none';
+
+  // Extract task time windows
+  const begins  = payload.events.filter(e => e.type === 'task-begin');
+  taskBoundaries = begins.map((e, i) => {
+    const nextBegin = begins[i + 1];
+    const submit    = payload.events.find(ev =>
+      ev.type === 'task-submit' && ev.task_id === e.task_id && ev.timestamp >= e.timestamp
+    );
+    const start = e.timestamp;
+    const end   = submit?.timestamp ?? nextBegin?.timestamp ?? null;
+    const def   = payload.taskStimuli?.[e.task_id] ?? null;
+
+    const tMouse  = inWindow(payload.mouseEvents  || [], start, end ?? start + 3600000);
+    const tScroll = inWindow(payload.scrollEvents || [], start, end ?? start + 3600000);
+    const tGaze   = inWindow(payload.gazeLog      || [], start, end ?? start + 3600000);
+    const tClicks = inWindow(payload.clickEvents  || [], start, end ?? start + 3600000);
+
+    return {
+      task_id:  e.task_id,
+      title:    def?.title ?? e.task_id,
+      start, end,
+      tMouse, tScroll, tGaze, tClicks,
+      stimulus_html: def?.stimulus_html ?? null,
+      instructions:  def?.instructions  ?? null,
+    };
+  });
+
+  if (taskBoundaries.length === 0) {
+    showError('No tasks found in this session file.');
+    return;
+  }
+
+  populateSidebar();
+  showScreen('main-screen');
+
+  // Auto-select first task
+  selectTask(taskBoundaries[0]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SIDEBAR
+// ═══════════════════════════════════════════════════════════════════════════
+
+function populateSidebar() {
+  // Top-bar pills
+  const pid = payload.participantId ?? payload.participantIDs?.prolific_pid ?? 'Unknown';
+  document.getElementById('top-pid').textContent = `PID: ${pid}`;
+
+  const startTs = payload.timestamps?.startTime ?? null;
+  document.getElementById('top-date').textContent = startTs
+    ? new Date(startTs).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
+    : 'Date unknown';
+
+  const totalGaze = (payload.gazeLog || []).length;
+  const gazeEl    = document.getElementById('top-gaze-status');
+  gazeEl.textContent    = totalGaze > 0 ? `${totalGaze.toLocaleString()} gaze samples` : 'No gaze data';
+  gazeEl.className      = 'pill ' + (totalGaze > 0 ? 'green' : '');
+  if (totalGaze === 0) gazeEl.style.cssText = 'background:#fef2f2;color:#dc2626;';
+
+  // Meta grid
+  const dur     = payload.timestamps?.durationSeconds ?? null;
+  const browser = payload.environmentCheck?.browser ?? null;
+  const screen  = payload.environmentCheck?.screen ?? null;
+  const rows = [
+    ['Participant',  pid],
+    ['Duration',     dur  ? fmtSec(dur) : 'n/a'],
+    ['Browser',      browser ? `${browser.name ?? ''} ${browser.version ?? ''}`.trim() : 'n/a'],
+    ['Screen',       screen  ? `${screen.width}×${screen.height}` : 'n/a'],
+    ['Tasks',        taskBoundaries.length.toString()],
+    ['Mouse events', (payload.mouseEvents  || []).length.toLocaleString()],
+    ['Click events', (payload.clickEvents  || []).length.toLocaleString()],
+    ['Gaze samples', (payload.gazeLog      || []).length.toLocaleString()],
+    ['Scroll events',(payload.scrollEvents || []).length.toLocaleString()],
+  ];
+  const grid = document.getElementById('meta-grid');
+  grid.innerHTML = rows.map(([k,v]) =>
+    `<div class="meta-row"><span class="k">${k}</span><span class="v" title="${v}">${v}</span></div>`
+  ).join('');
+
+  // Task list
+  const container = document.getElementById('task-items');
+  container.innerHTML = '';
+  taskBoundaries.forEach(task => {
+    const dur   = task.end ? fmtMs(task.end - task.start) : '?';
+    const div   = document.createElement('div');
+    div.className = 'task-item';
+    div.dataset.taskId = task.task_id;
+    div.innerHTML = `
+      <div class="t-title">${escHtml(task.title)}</div>
+      <div class="t-meta">
+        <span class="t-badge">⏱ ${dur}</span>
+        ${task.tGaze.length   > 0 ? `<span class="t-badge gaze">👁 ${task.tGaze.length.toLocaleString()}</span>` : ''}
+        ${task.tClicks.length > 0 ? `<span class="t-badge click">🖱 ${task.tClicks.length}</span>` : ''}
+      </div>`;
+    div.addEventListener('click', () => selectTask(task));
+    container.appendChild(div);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK SELECTION
+// ═══════════════════════════════════════════════════════════════════════════
+
+function selectTask(task) {
+  pausePlayback();
+  currentTask    = task;
+  taskDurationMs = task.end ? Math.max(task.end - task.start, 1) : 60000;
+  playbackMs     = 0;
+  lastRafTime    = null;
+
+  // Sidebar highlight
+  document.querySelectorAll('.task-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.taskId === task.task_id);
+  });
+
+  // Task label in controls bar
+  document.getElementById('ctrl-task-label').textContent = task.title;
+
+  // Render stimulus into iframe
+  const iframe = document.getElementById('replay-iframe');
+  document.getElementById('no-task-msg').style.display = 'none';
+  iframe.style.display = 'block';
+
+  if (task.stimulus_html) {
+    const doc = buildIframeDoc(task);
+    iframe.srcdoc = doc;
+  } else {
+    iframe.srcdoc = `<html><body style="font-family:system-ui;padding:40px;color:#64748b">
+      <p>No stimulus HTML found for task <code>${escHtml(task.task_id)}</code>.</p>
+      <p style="font-size:12px;margin-top:8px;">Ensure the session was exported with
+      <code>taskStimuli</code> in the payload (debrief.js v2+).</p>
+      </body></html>`;
+  }
+
+  resetOverlays();
+  updateScrubber(0);
+
+  // Render first frame once iframe is ready
+  iframe.onload = () => renderFrame(0);
+}
+
+function buildIframeDoc(task) {
+  const banner = task.instructions
+    ? `<div style="margin-bottom:20px;padding:16px 20px;background:#eef2ff;
+         color:#1e3a8a;border-radius:12px;border:1px solid #bfdbfe;
+         font-size:14px;line-height:1.7;">
+         <strong style="display:block;margin-bottom:6px;font-size:15px;">Instructions</strong>
+         ${task.instructions}
+       </div>`
+    : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; }
+  html { font-family: system-ui, -apple-system, sans-serif; }
+  body { margin: 0; padding: 0; background: #fff; }
+  /* Prevent the task's own interactive elements from capturing input */
+  a, button, input, select, textarea { pointer-events: none !important; }
+</style>
+</head>
+<body>
+<div style="max-width:900px;margin:0 auto;padding:28px;">
+  ${banner}
+  <div id="task-stimulus">${task.stimulus_html}</div>
+</div>
+</body></html>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLAYBACK ENGINE
+// ═══════════════════════════════════════════════════════════════════════════
+
+function startPlayback() {
+  if (isPlaying || !currentTask) return;
+  if (playbackMs >= taskDurationMs) playbackMs = 0;
+  isPlaying   = true;
+  lastRafTime = null;
+  document.getElementById('btn-play').textContent = '⏸';
+  rafId = requestAnimationFrame(tick);
+}
+
+function pausePlayback() {
+  if (!isPlaying) return;
+  isPlaying = false;
+  document.getElementById('btn-play').textContent = '▶';
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+}
+
+function tick(nowPerf) {
+  if (!isPlaying) return;
+  if (lastRafTime !== null) playbackMs += (nowPerf - lastRafTime) * speedFactor;
+  lastRafTime = nowPerf;
+
+  if (playbackMs >= taskDurationMs) {
+    playbackMs = taskDurationMs;
+    pausePlayback();
+  }
+  renderFrame(playbackMs);
+  if (isPlaying) rafId = requestAnimationFrame(tick);
+}
+
+// ─── Frame rendering ───────────────────────────────────────────────────────
+
+function renderFrame(ms) {
+  if (!currentTask) return;
+
+  const absT      = currentTask.start + ms;
+  const vpWrap    = document.getElementById('viewport-wrap');
+  const vw        = vpWrap.clientWidth;
+  const vh        = vpWrap.clientHeight;
+
+  // ── Mouse cursor ────────────────────────────────────────────────────────
+  const mouse = lastBefore(currentTask.tMouse, absT);
+  const cursor = document.getElementById('ov-cursor');
+  if (mouse) {
+    cursor.style.left    = mouse.x_norm * vw + 'px';
+    cursor.style.top     = mouse.y_norm * vh + 'px';
+    cursor.style.display = 'block';
+  }
+
+  // ── Gaze dot ────────────────────────────────────────────────────────────
+  // x/y are in −0.5…0.5 normalised space
+  const gaze = lastBefore(currentTask.tGaze, absT);
+  const gazeEl = document.getElementById('ov-gaze');
+  if (gaze && typeof gaze.x === 'number') {
+    gazeEl.style.left    = ((gaze.x + 0.5) * vw) + 'px';
+    gazeEl.style.top     = ((gaze.y + 0.5) * vh) + 'px';
+    gazeEl.style.display = 'block';
+  } else {
+    gazeEl.style.display = 'none';
+  }
+
+  // ── Scroll ──────────────────────────────────────────────────────────────
+  // window-level scroll → scroll the iframe's contentWindow
+  const winScroll = lastBefore(
+    currentTask.tScroll.filter(s => s.target_id === '__window__'), absT
+  );
+  const iframe = document.getElementById('replay-iframe');
+  if (iframe.contentWindow && winScroll) {
+    try { iframe.contentWindow.scrollTo(winScroll.scrollX ?? 0, winScroll.scrollY ?? 0); }
+    catch (_) {}
+  }
+
+  // Inner-container scrolls → find element by id inside the iframe and set scrollTop
+  const latestInner = {};
+  currentTask.tScroll
+    .filter(s => s.target_id !== '__window__' && s.t <= absT)
+    .forEach(s => { latestInner[s.target_id] = s; });
+  Object.values(latestInner).forEach(s => {
+    if (!s.target_id || !iframe.contentDocument) return;
+    try {
+      const el = iframe.contentDocument.querySelector('#' + CSS.escape(s.target_id));
+      if (el) { el.scrollTop = s.scrollY ?? 0; el.scrollLeft = s.scrollX ?? 0; }
+    } catch(_) {}
+  });
+
+  // ── Click ripple ────────────────────────────────────────────────────────
+  currentTask.tClicks.forEach(c => {
+    if (Math.abs(c.t - absT) < 80 && !c._shown) {
+      c._shown = true;
+      const ripple = document.createElement('div');
+      ripple.className = 'click-ripple';
+      ripple.style.left = (c.x_norm * vw) + 'px';
+      ripple.style.top  = (c.y_norm * vh) + 'px';
+      vpWrap.appendChild(ripple);
+      ripple.addEventListener('animationend', () => ripple.remove());
+      // Reset flag after the ripple window has passed
+      setTimeout(() => { c._shown = false; }, 500);
+    }
+  });
+
+  updateScrubber(ms);
+}
+
+function resetOverlays() {
+  document.getElementById('ov-cursor').style.display = 'none';
+  document.getElementById('ov-gaze').style.display   = 'none';
+  const iframe = document.getElementById('replay-iframe');
+  if (iframe.contentWindow) {
+    try { iframe.contentWindow.scrollTo(0, 0); } catch(_) {}
+  }
+}
+
+function updateScrubber(ms) {
+  const fraction = Math.min(ms / Math.max(taskDurationMs, 1), 1);
+  document.getElementById('scrubber').value = Math.round(fraction * 10000);
+  document.getElementById('time-display').textContent =
+    fmtMs(ms) + ' / ' + fmtMs(taskDurationMs);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════════════════════════════
+
+document.getElementById('btn-play').addEventListener('click', () => {
+  if (isPlaying) pausePlayback(); else startPlayback();
+});
+
+document.getElementById('scrubber').addEventListener('input', function() {
+  pausePlayback();
+  playbackMs = (this.value / 10000) * taskDurationMs;
+  renderFrame(playbackMs);
+});
+
+document.querySelectorAll('.speed-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    speedFactor = parseFloat(btn.dataset.speed);
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.toggle('active', b === btn));
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if (!currentTask) return;
+  if (e.target.tagName === 'INPUT') return;
+  switch (e.key) {
+    case ' ':
+      e.preventDefault();
+      if (isPlaying) pausePlayback(); else startPlayback();
+      break;
+    case 'ArrowRight':
+      pausePlayback();
+      playbackMs = Math.min(playbackMs + 5000, taskDurationMs);
+      renderFrame(playbackMs);
+      break;
+    case 'ArrowLeft':
+      pausePlayback();
+      playbackMs = Math.max(playbackMs - 5000, 0);
+      renderFrame(playbackMs);
+      break;
+    case 'Home':
+      pausePlayback(); playbackMs = 0; renderFrame(0);
+      break;
+    case 'End':
+      pausePlayback(); playbackMs = taskDurationMs; renderFrame(taskDurationMs);
+      break;
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+function lastBefore(arr, absT) {
+  if (!arr || !arr.length) return null;
+  let lo = 0, hi = arr.length - 1, result = null;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (arr[mid].t <= absT) { result = arr[mid]; lo = mid + 1; }
+    else hi = mid - 1;
+  }
+  return result;
+}
+
+function inWindow(arr, t0, t1) {
+  return arr.filter(e => e.t >= t0 && e.t <= t1);
+}
+
+function fmtMs(ms) {
+  const s = Math.floor(Math.abs(ms) / 1000);
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+
+function fmtSec(sec) {
+  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+function escHtml(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+</script>
+</body>
+</html>

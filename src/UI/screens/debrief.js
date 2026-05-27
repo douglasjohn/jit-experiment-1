@@ -1,6 +1,5 @@
 import { sessionData } from '../../experiment/session';
 import { CONFIG } from '../../experiment/config';
-import { TASK_DEFINITIONS } from '../../experiment/taskRunner';
 import { launchReplay } from '../../replay/replayPlayer';
 
 const RESEARCHER_EMAIL = 'jd2117@cam.ac.uk';
@@ -87,23 +86,6 @@ function _assemblePayload() {
 
     // ── Full event log ────────────────────────────────────────────────────────
     events:             sessionData.events,
-
-    // ── Task stimuli (embedded for backend/offline replay without the app) ────
-    // Maps task_id → { stimulus_html, instructions, title }.
-    // The replay player uses this when running from a downloaded JSON rather
-    // than from the live app bundle (where TASK_DEFINITIONS is importable).
-    taskStimuli: Object.fromEntries(
-      CONFIG.TASK_ORDER
-        .filter(id => TASK_DEFINITIONS[id])
-        .map(id => {
-          const def = TASK_DEFINITIONS[id];
-          return [id, {
-            title:         def.title,
-            instructions:  def.instructions ?? null,
-            stimulus_html: def.stimulus_html,
-          }];
-        })
-    ),
   };
 }
 

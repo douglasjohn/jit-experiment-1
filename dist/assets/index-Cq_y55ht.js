@@ -1165,30 +1165,24 @@ var uB=Object.defineProperty;var ET=X=>{throw TypeError(X)};var cB=(X,j,re)=>j i
     </div>
   `}function PB(X,j){tu[X]=j;for(let ke=5;ke<=100;ke+=5){const $e=`t_${X}_${ke}`,G=`b_${X}_${ke}`,W=document.getElementById($e),Re=document.getElementById(G);W&&(W.classList.remove("selected"),W.bgColor="#FFFFFF"),Re&&(Re.classList.remove("selected"),Re.bgColor="#FFFFFF")}const re=document.getElementById(`t_${X}_${j}`),se=document.getElementById(`b_${X}_${j}`);re&&(re.classList.add("selected"),re.bgColor="#AAAAAA"),se&&(se.classList.add("selected"),se.bgColor="#AAAAAA")}function BB(){if(tu.map((j,re)=>j==null?re:null).filter(j=>j!==null).length>0){alert("Please select a value for every NASA-TLX scale before continuing.");return}Ct.nasaTLX={timestamp:Date.now(),responses:{mental:tu[0],physical:tu[1],temporal:tu[2],performance:tu[3],effort:tu[4],frustration:tu[5]}},Ct.events.push({type:"nasatlx-submit",timestamp:Date.now(),responses:{...Ct.nasaTLX.responses}}),yw(),ra("screen-debrief")}function YT(){const X=document.getElementById("screen-calibration");if(!X)return;X.innerHTML=`
     <div class="hero" style="max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center;">
-
-      <div id="calibration-instructions">
+      <div id="calibration-header" style="display: block;">
         <h1>Calibration</h1>
-        <p>
-          Sit roughly an arm’s length from your screen. Keep your head as still as possible and follow the dot with your eyes only.
-        </p>
+        <p>Sit roughly an arm’s length from your screen. Try to keep your head relatively still throughout the experiment while following the red dot with your eyes. Press the button below to begin. </p>
       </div>
 
-      <div id="calibration-status">
+      <div id="status">
         <p id="status-text">Initializing...</p>
-
         <div id="debug-info" style="font-size: 12px; margin-top: 10px; color: #666;">
           <div>Gaze: <span id="gaze-coords">N/A</span></div>
           <div>State: <span id="gaze-state">N/A</span></div>
           <div>Fixations: <span id="fixation-count">0</span></div>
         </div>
-
         <button data-cal="calibrate-btn" style="margin-top: 12px;">Start Calibration</button>
 
         <div data-cal="quality-display" style="display: none; margin-top: 24px; text-align: left; max-width: 500px; background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #ddd;">
           <h3 style="margin: 0 0 12px; color: #1b1b1f;">Calibration Results</h3>
           <p data-cal="quality-text" style="margin: 0 0 8px; font-size: 14px;"></p>
           <div data-cal="quality-errors" style="color: #b00; font-size: 13px; margin-top: 8px;"></div>
-
           <div data-cal="quality-gate-warning" style="display: none; margin-top: 12px; padding: 12px; background: #fff3cd; border-radius: 6px; border-left: 4px solid #ffc107;">
             <strong style="color: #856404;">⚠ Accuracy below target</strong>
             <p style="margin: 4px 0 0; font-size: 13px; color: #856404;">Please recalibrate to achieve &lt; 25% error</p>
@@ -1196,11 +1190,7 @@ var uB=Object.defineProperty;var ET=X=>{throw TypeError(X)};var cB=(X,j,re)=>j i
         </div>
       </div>
 
-      <button data-cal="continue-btn"
-        style="margin-top: 32px; display: none; padding: 12px 24px; background: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600;">
-        Continue to Task
-      </button>
-
+      <button data-cal="continue-btn" style="margin-top: 32px; display: none; padding: 12px 24px; background: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600;">Continue to Task</button>
     </div>
   `;const j=X.querySelector("#calibration-header"),re=X.querySelector('[data-cal="calibrate-btn"]'),se=X.querySelector('[data-cal="continue-btn"]'),ke=X.querySelector('[data-cal="quality-display"]'),$e=X.querySelector('[data-cal="quality-text"]'),G=X.querySelector('[data-cal="quality-errors"]'),W=X.querySelector('[data-cal="quality-gate-warning"]');let Re=null;function dt(Le){if(!Le)return;Re=Le,j.style.display="block",ke.style.display="block";const ht=isNaN(Le.meanError)?null:(Le.meanError*100).toFixed(2),He=isNaN(Le.maxError)?null:(Le.maxError*100).toFixed(2),_e=window._calibrationSystem,Se=(_e==null?void 0:_e.MSE_THRESHOLD)||1/0,Y=Le.meanError!==void 0&&Le.meanError<Se;$e.innerHTML=`
       <strong>Mean error:</strong> ${ht?ht+"%":"N/A"} of screen<br>

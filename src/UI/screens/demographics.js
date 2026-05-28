@@ -40,12 +40,8 @@ export function renderDemographicsScreen() {
               <span style="color:#1f2937;font-size:15px;">Undergraduate Degree</span>
             </label>
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="radio" name="demo-education" value="Master’s Degree" style="width:16px;height:16px;" />
-              <span style="color:#1f2937;font-size:15px;">Master’s Degree</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="radio" name="demo-education" value="PhD" style="width:16px;height:16px;" />
-              <span style="color:#1f2937;font-size:15px;">PhD</span>
+              <input type="radio" name="demo-education" value="Postgraduate Degree" style="width:16px;height:16px;" />
+              <span style="color:#1f2937;font-size:15px;">Postgraduate Degree</span>
             </label>
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
               <input type="radio" name="demo-education" value="Prefer not to say" style="width:16px;height:16px;" />

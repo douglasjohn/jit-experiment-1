@@ -53,21 +53,21 @@ export const CONFIG = {
    * The probe fires after (duration × TIME_OVERRUN_FACTOR) seconds.
    */
   TASK_EXPECTED_DURATIONS: {
-    'broken-nav':           90,
-    'ambiguous-form':      120,
-    'data-table':           90,
-    'math-problem':        150,
-    'visual-search':        90,
-    'error-diagnosis':      90,
-    'instruction-following':120,
-    'reading-inference':   120,
+    'broken-nav':           60,
+    'ambiguous-form':       60,
+    'data-table':           60,
+    'math-problem':         60,
+    'visual-search':        60,
+    'error-diagnosis':      60,
+    'instruction-following':60,
+    'reading-inference':    60,
   },
 
   /**
    * How much longer than the expected duration before the overrun probe fires.
    * 1.5 = 50% over expected time.
    */
-  TIME_OVERRUN_FACTOR: 1.5,
+  TIME_OVERRUN_FACTOR: 1,
 
   // ── AUTO-ADVANCE SETTINGS ─────────────────────────────────────────────────
 
@@ -86,14 +86,14 @@ export const CONFIG = {
    * Example: { 'broken-nav': 30, 'math-problem': 45 }
    */
   AUTO_ADVANCE_TIMEOUTS: {
-    'broken-nav':           300,
-    'ambiguous-form':       300,
-    'data-table':           300,
-    'math-problem':         300,
-    'visual-search':        300,
-    'error-diagnosis':      5000,  // no auto-advance
-    'instruction-following':300,
-    'reading-inference':    300,
+    'broken-nav':           120,
+    'ambiguous-form':       120,
+    'data-table':           120,
+    'math-problem':         120,
+    'visual-search':        120,
+    'error-diagnosis':      120,
+    'instruction-following':120,
+    'reading-inference':    120,
   },
 
   // ── STUDY MODE ────────────────────────────────────────────────────────────

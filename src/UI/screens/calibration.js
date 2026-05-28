@@ -13,30 +13,24 @@ export function renderCalibrationScreen() {
 
   el.innerHTML = `
     <div class="hero" style="max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center;">
-
-      <div id="calibration-instructions">
+      <div id="calibration-header" style="display: block;">
         <h1>Calibration</h1>
-        <p>
-          Sit roughly an arm’s length from your screen. Keep your head as still as possible and follow the dot with your eyes only.
-        </p>
+        <p>Place yourself roughly arms-length away from the screen. Follow the red dot with your eyes while keeping your head relatively still.</p>
       </div>
 
-      <div id="calibration-status">
+      <div id="status">
         <p id="status-text">Initializing...</p>
-
         <div id="debug-info" style="font-size: 12px; margin-top: 10px; color: #666;">
           <div>Gaze: <span id="gaze-coords">N/A</span></div>
           <div>State: <span id="gaze-state">N/A</span></div>
           <div>Fixations: <span id="fixation-count">0</span></div>
         </div>
-
         <button data-cal="calibrate-btn" style="margin-top: 12px;">Start Calibration</button>
 
         <div data-cal="quality-display" style="display: none; margin-top: 24px; text-align: left; max-width: 500px; background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #ddd;">
           <h3 style="margin: 0 0 12px; color: #1b1b1f;">Calibration Results</h3>
           <p data-cal="quality-text" style="margin: 0 0 8px; font-size: 14px;"></p>
           <div data-cal="quality-errors" style="color: #b00; font-size: 13px; margin-top: 8px;"></div>
-
           <div data-cal="quality-gate-warning" style="display: none; margin-top: 12px; padding: 12px; background: #fff3cd; border-radius: 6px; border-left: 4px solid #ffc107;">
             <strong style="color: #856404;">⚠ Accuracy below target</strong>
             <p style="margin: 4px 0 0; font-size: 13px; color: #856404;">Please recalibrate to achieve &lt; 25% error</p>
@@ -44,11 +38,7 @@ export function renderCalibrationScreen() {
         </div>
       </div>
 
-      <button data-cal="continue-btn"
-        style="margin-top: 32px; display: none; padding: 12px 24px; background: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600;">
-        Continue to Task
-      </button>
-
+      <button data-cal="continue-btn" style="margin-top: 32px; display: none; padding: 12px 24px; background: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600;">Continue to Task</button>
     </div>
   `;
 

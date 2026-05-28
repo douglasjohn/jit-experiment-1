@@ -137,9 +137,12 @@ async function _submitSessionData() {
   try {
     const payload  = _assemblePayload();
     const response = await fetch(CONFIG.DATA_ENDPOINT, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(payload),
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': 'e40451ecf7a5aa59ee20e4f14aed13f463b8788b835d2fa473d28428b3c107ef', // if you're reading this, please don't abuse our key - we are humble researchers just interested in science 🤓
+      },
+      body: JSON.stringify(payload),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     _showDebriefSuccess(payload);
@@ -180,8 +183,14 @@ function _showDebriefSuccess(payload) {
     </div>`;
 
   // Wire replay button (payload captured in closure)
-  document.getElementById('debrief-replay-btn')
-    .addEventListener('click', () => launchReplay(payload));
+  const replayBtn = document.getElementById('debrief-replay-btn');
+
+  replayBtn.addEventListener('click', () => launchReplay(payload));
+
+  replayBtn.setAttribute(
+    'title',
+    'Watch back your experiment if you would like to'
+  );
 
   setTimeout(() => {
     const wrap = document.getElementById('completion-btn-wrap');

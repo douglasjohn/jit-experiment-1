@@ -19,69 +19,6 @@ export function renderDemographicsScreen() {
       </p>
 
       <div style="display:grid;gap:24px;">
-        <section>
-          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;text-align:left;">How old are you?</h2>
-          <div style="display:grid;gap:10px;">
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="radio" name="demo-age" value="18-24" style="width:16px;height:16px;" />
-              <span style="color:#1f2937;font-size:15px;">18-24</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="radio" name="demo-age" value="25-34" style="width:16px;height:16px;" />
-              <span style="color:#1f2937;font-size:15px;">25-34</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="radio" name="demo-age" value="35-44" style="width:16px;height:16px;" />
-              <span style="color:#1f2937;font-size:15px;">35-44</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="radio" name="demo-age" value="45-54" style="width:16px;height:16px;" />
-              <span style="color:#1f2937;font-size:15px;">45-54</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="radio" name="demo-age" value="55-64" style="width:16px;height:16px;" />
-              <span style="color:#1f2937;font-size:15px;">55-64</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="radio" name="demo-age" value="65+" style="width:16px;height:16px;" />
-              <span style="color:#1f2937;font-size:15px;">65+</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="radio" name="demo-age" value="Prefer not to say" style="width:16px;height:16px;" />
-              <span style="color:#1f2937;font-size:15px;">Prefer not to say</span>
-            </label>
-          </div>
-        </section>
-
-        <section>
-          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;text-align:left;">How do you describe yourself?</h2>
-          <div style="display:grid;gap:10px;">
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="radio" name="demo-gender" value="Female" style="width:16px;height:16px;" />
-              <span style="color:#1f2937;font-size:15px;">Female</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="radio" name="demo-gender" value="Male" style="width:16px;height:16px;" />
-              <span style="color:#1f2937;font-size:15px;">Male</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="radio" name="demo-gender" value="Non-binary" style="width:16px;height:16px;" />
-              <span style="color:#1f2937;font-size:15px;">Non-binary</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="radio" name="demo-gender" value="Prefer to self describe" style="width:16px;height:16px;" />
-              <span style="color:#1f2937;font-size:15px;">Prefer to self describe</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="radio" name="demo-gender" value="Prefer not to say" style="width:16px;height:16px;" />
-              <span style="color:#1f2937;font-size:15px;">Prefer not to say</span>
-            </label>
-          </div>
-          <div id="demo-gender-self-wrap" style="margin-top:14px;display:none;">
-            <label for="demo-gender-self" style="display:block;font-weight:600;color:#111827;margin-bottom:8px;">Please describe yourself</label>
-            <input id="demo-gender-self" type="text" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:15px;box-sizing:border-box;" placeholder="Self description" />
-          </div>
-        </section>
 
         <section>
           <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;text-align:left;">What is the highest level of education you have completed or are currently pursuing?</h2>
@@ -140,7 +77,7 @@ export function renderDemographicsScreen() {
         </section>
 
         <section>
-          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;text-align:left;">I can usually complete unfamiliar tasks on websites without help.</h2>
+          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;text-align:left;">I can usually complete tasks on websites without help.</h2>
           <div style="display:grid;gap:10px;">
             <div style="display:flex;justify-content:space-between;font-size:13px;color:#475569;margin-bottom:6px;">
               <span>Strongly disagree</span>
@@ -201,51 +138,51 @@ export function renderDemographicsScreen() {
     </div>
   `;
 
-  const genderRadios = Array.from(screen.querySelectorAll('input[name="demo-gender"]'));
-  const genderSelfWrap = document.getElementById('demo-gender-self-wrap');
-  const genderSelfInput = document.getElementById('demo-gender-self');
+  // const genderRadios = Array.from(screen.querySelectorAll('input[name="demo-gender"]'));
+  // const genderSelfWrap = document.getElementById('demo-gender-self-wrap');
+  // const genderSelfInput = document.getElementById('demo-gender-self');
   const continueBtn = document.getElementById('demo-continue-btn');
   const errorEl = document.getElementById('demo-error');
 
-  function setGenderSelfVisibility() {
-    const selected = genderRadios.find(r => r.checked);
-    if (selected?.value === 'Prefer to self describe') {
-      genderSelfWrap.style.display = 'block';
-    } else {
-      genderSelfWrap.style.display = 'none';
-    }
-  }
+  // function setGenderSelfVisibility() {
+  //   const selected = genderRadios.find(r => r.checked);
+  //   if (selected?.value === 'Prefer to self describe') {
+  //     genderSelfWrap.style.display = 'block';
+  //   } else {
+  //     genderSelfWrap.style.display = 'none';
+  //   }
+  // }
 
-  genderRadios.forEach(radio => radio.addEventListener('change', setGenderSelfVisibility));
+  // genderRadios.forEach(radio => radio.addEventListener('change', setGenderSelfVisibility));
 
   async function handleContinue() {
-    const age = screen.querySelector('input[name="demo-age"]:checked')?.value;
-    const gender = screen.querySelector('input[name="demo-gender"]:checked')?.value;
+    // const age = screen.querySelector('input[name="demo-age"]:checked')?.value;
+    // const gender = screen.querySelector('input[name="demo-gender"]:checked')?.value;
     const education = screen.querySelector('input[name="demo-education"]:checked')?.value;
     const english = screen.querySelector('input[name="demo-english"]:checked')?.value;
     const unfamiliarTask = screen.querySelector('input[name="demo-unfamiliar-task"]:checked')?.value;
     const websiteFigureOut = screen.querySelector('input[name="demo-website-figure-out"]:checked')?.value;
     const troubleshooting = screen.querySelector('input[name="demo-troubleshooting"]:checked')?.value;
-    const genderSelf = genderSelfInput?.value.trim() || null;
+    // const genderSelf = genderSelfInput?.value.trim() || null;
 
-    if (!age || !gender || !education || !english || !unfamiliarTask || !websiteFigureOut || !troubleshooting) {
+    if (!education || !english || !unfamiliarTask || !websiteFigureOut || !troubleshooting) {
       errorEl.textContent = 'Please answer all questions before continuing.';
       errorEl.style.display = 'block';
       return;
     }
 
-    if (gender === 'Prefer to self describe' && !genderSelf) {
-      errorEl.textContent = 'Please describe yourself when selecting self describe.';
-      errorEl.style.display = 'block';
-      return;
-    }
+    // if (gender === 'Prefer to self describe' && !genderSelf) {
+    //   errorEl.textContent = 'Please describe yourself when selecting self describe.';
+    //   errorEl.style.display = 'block';
+    //   return;
+    // }
 
     errorEl.style.display = 'none';
 
     sessionData.demographics = {
-      age_group: age,
-      gender: gender === 'Prefer to self describe' ? 'Prefer to self describe' : gender,
-      gender_self_description: gender === 'Prefer to self describe' ? genderSelf : null,
+      // age_group: age,
+      // gender: gender === 'Prefer to self describe' ? 'Prefer to self describe' : gender,
+      // gender_self_description: gender === 'Prefer to self describe' ? genderSelf : null,
       education_level: education,
       english_proficiency: english,
       website_unfamiliar_task_confidence: Number(unfamiliarTask),
@@ -269,5 +206,5 @@ export function renderDemographicsScreen() {
   }
 
   continueBtn.addEventListener('click', handleContinue);
-  setGenderSelfVisibility();
+  // setGenderSelfVisibility();
 }

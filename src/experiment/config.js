@@ -29,7 +29,7 @@ export const CONFIG = {
    *
    * Example: 'https://your-server.com/api/submit'
    */
-  DATA_ENDPOINT: '',
+  DATA_ENDPOINT: 'https://jjdudley.com/projects/prolific/api/submissions/json.php',
 
   // ── TASK SETTINGS ─────────────────────────────────────────────────────────
 

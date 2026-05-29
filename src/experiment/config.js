@@ -53,13 +53,13 @@ export const CONFIG = {
    * The probe fires after (duration × TIME_OVERRUN_FACTOR) seconds.
    */
   TASK_EXPECTED_DURATIONS: {
-    'broken-nav':           60,
-    'ambiguous-form':       60,
-    'data-table':           60,
-    'math-problem':         60,
-    'visual-search':        60,
-    'error-diagnosis':      60,
-    'instruction-following':60,
+    'broken-nav':           45,
+    'ambiguous-form':       45,
+    'data-table':           35,
+    'math-problem':         45,
+    'visual-search':        30,
+    'error-diagnosis':      45,
+    'instruction-following':45,
     'reading-inference':    60,
   },
 
@@ -86,13 +86,13 @@ export const CONFIG = {
    * Example: { 'broken-nav': 30, 'math-problem': 45 }
    */
   AUTO_ADVANCE_TIMEOUTS: {
-    'broken-nav':           120,
-    'ambiguous-form':       120,
-    'data-table':           120,
-    'math-problem':         120,
-    'visual-search':        120,
-    'error-diagnosis':      120,
-    'instruction-following':120,
+    'broken-nav':           90,
+    'ambiguous-form':       90,
+    'data-table':           90,
+    'math-problem':         90,
+    'visual-search':        90,
+    'error-diagnosis':      90,
+    'instruction-following':90,
     'reading-inference':    120,
   },
 

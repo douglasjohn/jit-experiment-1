@@ -73,6 +73,29 @@ export function renderDemographicsScreen() {
         </section>
 
         <section>
+          <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;text-align:left;">
+            Are you currently wearing glasses?
+          </h2>
+
+          <div style="display:grid;gap:10px;">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="radio" name="demo-glasses" value="Yes" style="width:16px;height:16px;" />
+              <span style="color:#1f2937;font-size:15px;">Yes</span>
+            </label>
+
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="radio" name="demo-glasses" value="No" style="width:16px;height:16px;" />
+              <span style="color:#1f2937;font-size:15px;">No</span>
+            </label>
+
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="radio" name="demo-glasses" value="Prefer not to say" style="width:16px;height:16px;" />
+              <span style="color:#1f2937;font-size:15px;">Prefer not to say</span>
+            </label>
+          </div>
+        </section>
+
+        <section>
           <h2 style="font-size:1rem;font-weight:700;color:#111827;margin-bottom:12px;text-align:left;">I can usually complete tasks on websites without help.</h2>
           <div style="display:grid;gap:10px;">
             <div style="display:flex;justify-content:space-between;font-size:13px;color:#475569;margin-bottom:6px;">
@@ -156,12 +179,13 @@ export function renderDemographicsScreen() {
     // const gender = screen.querySelector('input[name="demo-gender"]:checked')?.value;
     const education = screen.querySelector('input[name="demo-education"]:checked')?.value;
     const english = screen.querySelector('input[name="demo-english"]:checked')?.value;
+    const glasses = screen.querySelector('input[name="demo-glasses"]:checked')?.value;
     const unfamiliarTask = screen.querySelector('input[name="demo-unfamiliar-task"]:checked')?.value;
     const websiteFigureOut = screen.querySelector('input[name="demo-website-figure-out"]:checked')?.value;
     const troubleshooting = screen.querySelector('input[name="demo-troubleshooting"]:checked')?.value;
     // const genderSelf = genderSelfInput?.value.trim() || null;
 
-    if (!education || !english || !unfamiliarTask || !websiteFigureOut || !troubleshooting) {
+    if (!education || !english || !glasses || !unfamiliarTask || !websiteFigureOut || !troubleshooting) {
       errorEl.textContent = 'Please answer all questions before continuing.';
       errorEl.style.display = 'block';
       return;
@@ -181,6 +205,7 @@ export function renderDemographicsScreen() {
       // gender_self_description: gender === 'Prefer to self describe' ? genderSelf : null,
       education_level: education,
       english_proficiency: english,
+      wearing_glasses: glasses,
       website_unfamiliar_task_confidence: Number(unfamiliarTask),
       website_confusion_recovery_confidence: Number(websiteFigureOut),
       website_troubleshooting_confidence: Number(troubleshooting),

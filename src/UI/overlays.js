@@ -196,7 +196,7 @@ export function showExperienceProbeOverlay({
   });
 }
 
-export function moveGazeDot(x, y, visible = true) {
+export function moveGazeDot(x, y, visible = true) { 
   const gazeDot = document.getElementById('gaze-dot');
   gazeDot.style.transform = `translate(${x}px, ${y}px)`;
   gazeDot.style.display = visible ? 'block' : 'none';

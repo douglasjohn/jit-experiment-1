@@ -17,7 +17,7 @@ export function renderAppShell() {
     <div id="experience-probe-overlay" style="display:none; position: fixed; inset: 0; z-index: 1200; pointer-events: none;"></div>
 
     <!-- GLOBAL TRACKER OVERLAYS -->
-    <!-- <div id="gaze-dot" style="
+    <div id="gaze-dot" style="
       position: fixed;
       z-index: 100;
       left: 0px;
@@ -42,7 +42,7 @@ export function renderAppShell() {
       display: none;
       pointer-events: none;
       border: 2px solid blue;
-    "></div> -->
+    "></div>
 
     <div id="calibration-dot" style="
       position: fixed;

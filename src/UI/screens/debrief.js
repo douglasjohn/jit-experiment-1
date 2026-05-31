@@ -140,7 +140,7 @@ async function _submitSessionData() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', // if you're reading this, please don't abuse our key - we are humble researchers just interested in science 🤓
+        'x-api-key': 'e40451ecf7a5aa59ee20e4f14aed13f463b8788b835d2fa473d28428b3c107ef', // if you're reading this, please don't abuse our key - we are humble researchers just interested in science 🤓
       },
       body: JSON.stringify(payload),
     });

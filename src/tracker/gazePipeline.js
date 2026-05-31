@@ -94,7 +94,7 @@ export function attachGazePipeline({ tracker, calibrationSystem, fixationDetecto
     // 5. Gaze dot — hide during drift so the artefact is visible to the researcher
     const screenX = (_emaX + 0.5) * window.innerWidth;
     const screenY = (_emaY + 0.5) * window.innerHeight;
-    moveGazeDot(screenX, screenY, gazeResult.gazeState !== 'closed' && !_driftActive);
+    moveGazeDot(screenX, screenY, false); // gazeResult.gazeState !== 'closed' && !_driftActive to reactivate gaze dot when not debugging drift
 
     // 6. Forward to gaze manager
     gazeManager?.handleGazeSample({

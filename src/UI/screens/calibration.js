@@ -15,7 +15,7 @@ export function renderCalibrationScreen() {
     <div class="hero" style="max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center;">
       <div id="calibration-header" style="display: block;">
         <h1>Calibration</h1>
-        <p>Sit roughly an arm’s length from your screen. Try to keep your head relatively still throughout the experiment while following the red dot with your eyes. Press the button below to begin. </p>
+        <p>Sit roughly an arm’s length from your screen. Try to keep your head relatively still throughout the experiment while following the red dot with your eyes. It may be helpful to follow the dots with your cursor. </p>
       </div>
 
       <div id="status">

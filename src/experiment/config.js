@@ -86,13 +86,13 @@ export const CONFIG = {
    * Example: { 'broken-nav': 30, 'math-problem': 45 }
    */
   AUTO_ADVANCE_TIMEOUTS: {
-    'broken-nav':           90,
+    'broken-nav':           75,
     'ambiguous-form':       90,
-    'data-table':           90,
+    'data-table':           75,
     'math-problem':         90,
-    'visual-search':        90,
-    'error-diagnosis':      90,
-    'instruction-following':90,
+    'visual-search':        75,
+    'error-diagnosis':      75,
+    'instruction-following':75,
     'reading-inference':    120,
   },
 

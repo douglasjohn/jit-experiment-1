@@ -53,15 +53,26 @@ function renderProbeContent({ taskId, triggerTime, triggerType }) {
           <h2 style="margin-top:0; margin-bottom:16px; font-size:22px;">
             How well did you understand what you were just doing?
           </h2>
-
-          <div id="probe-rating" style="display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:24px;">
-            ${[1, 2, 3, 4, 5].map((value) => `
-              <button type="button" data-probe-rating="${value}"
-                style="border:1px solid #d1d5db; border-radius:12px; padding:16px 0;
-                font-size:16px; background:#f9fafb; cursor:pointer; color:#111;">
-                ${value}
-              </button>
-            `).join('')}
+          <div id="probe-rating-wrapper" style="margin-bottom:24px;">
+            <div id="probe-rating" style="display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:24px;">
+              ${[1, 2, 3, 4, 5].map((value) => `
+                <button type="button" data-probe-rating="${value}"
+                  style="border:1px solid #d1d5db; border-radius:12px; padding:16px 0;
+                  font-size:16px; background:#f9fafb; cursor:pointer; color:#111;">
+                  ${value}
+                </button>
+              `).join('')}
+            </div>
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                margin-top:8px;
+                font-size:13px;
+                color:#6b7280;
+              ">
+              <span>1 – Don't understand</span>
+              <span>5 – Understand completely</span>
+            </div>
           </div>
 
           <div id="probe-sa" style="display:none; margin-top:18px;">

@@ -94,6 +94,7 @@ function getScaleHTML(index) {
   return `
     <div style="margin-bottom: 24px; text-align:left;">
       <div class="label-row">${scale[index]}</div>
+      <div class="def">${definitions[index]}</div>
       <div class="ratingScale" id="scale${index}">
         <table class="scale"><tbody>
           <tr>${topCells}</tr>
@@ -104,7 +105,6 @@ function getScaleHTML(index) {
           </tr>
         </tbody></table>
       </div>
-      <div class="def">${definitions[index]}</div>
     </div>
   `;
 }

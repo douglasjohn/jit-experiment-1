@@ -9,6 +9,7 @@
     "preview": "node ./node_modules/vite/bin/vite.js preview"
   },
   "dependencies": {
+    "docx": "^9.7.1",
     "webeyetrack": "^0.0.2"
   },
   "devDependencies": {

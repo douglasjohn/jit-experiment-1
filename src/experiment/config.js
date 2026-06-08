@@ -9,6 +9,28 @@ const RESEARCHER_MODE = params.has('researcher') && params.get('researcher') ===
 const RESEARCHER_TASK = params.get('task') || 'broken-nav';
 const SKIP_TO_SCREEN = params.get('screen') || '';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Task timeout configuration and random duration generator
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TASK_TIMEOUTS = {
+  'broken-nav':           75,
+  'ambiguous-form':       90,
+  'data-table':           75,
+  'math-problem':         90,
+  'visual-search':        75,
+  'error-diagnosis':      75,
+  'instruction-following':75,
+  'reading-inference':    120,
+};
+
+// Generate a random duration between 16 and (maxTimeout - 15)
+const getRandomDuration = (maxTimeout) => {
+  const min = 16;
+  const max = maxTimeout - 15;
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+};
+
 export const CONFIG = {
 
   // ── REQUIRED FOR DEPLOYMENT ───────────────────────────────────────────────
@@ -50,17 +72,18 @@ export const CONFIG = {
 
   /**
    * Expected task durations in seconds (used to trigger the overrun probe).
+   * Randomly generated between 16 and (AUTO_ADVANCE_TIMEOUT - 15) for each task.
    * The probe fires after (duration × TIME_OVERRUN_FACTOR) seconds.
    */
   TASK_EXPECTED_DURATIONS: {
-    'broken-nav':           45,
-    'ambiguous-form':       45,
-    'data-table':           35,
-    'math-problem':         45,
-    'visual-search':        30,
-    'error-diagnosis':      45,
-    'instruction-following':45,
-    'reading-inference':    60,
+    'broken-nav':           getRandomDuration(TASK_TIMEOUTS['broken-nav']),
+    'ambiguous-form':       getRandomDuration(TASK_TIMEOUTS['ambiguous-form']),
+    'data-table':           getRandomDuration(TASK_TIMEOUTS['data-table']),
+    'math-problem':         getRandomDuration(TASK_TIMEOUTS['math-problem']),
+    'visual-search':        getRandomDuration(TASK_TIMEOUTS['visual-search']),
+    'error-diagnosis':      getRandomDuration(TASK_TIMEOUTS['error-diagnosis']),
+    'instruction-following':getRandomDuration(TASK_TIMEOUTS['instruction-following']),
+    'reading-inference':    getRandomDuration(TASK_TIMEOUTS['reading-inference']),
   },
 
   /**
@@ -85,16 +108,7 @@ export const CONFIG = {
    *
    * Example: { 'broken-nav': 30, 'math-problem': 45 }
    */
-  AUTO_ADVANCE_TIMEOUTS: {
-    'broken-nav':           75,
-    'ambiguous-form':       90,
-    'data-table':           75,
-    'math-problem':         90,
-    'visual-search':        75,
-    'error-diagnosis':      75,
-    'instruction-following':75,
-    'reading-inference':    120,
-  },
+  AUTO_ADVANCE_TIMEOUTS: TASK_TIMEOUTS,
 
   // ── STUDY MODE ────────────────────────────────────────────────────────────
 

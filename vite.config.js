@@ -1,10 +1,12 @@
 import { defineConfig } from 'vite';
 
-export default defineConfig(({ command }) => ({
+// export default defineConfig(({ command }) => ({
   // For local development the tracker package loads the model from the
   // origin root at /web/model.json, so dev must use a root base path.
-  base: command === 'serve' ? '/' : '/jit-experiment-1/',
-
+  // base: command === 'serve' ? '/' : '/jit-experiment-1/',
+export default defineConfig(() => ({
+  base: '/',
+  
   build: {
     outDir:    'dist',
     assetsDir: 'assets',

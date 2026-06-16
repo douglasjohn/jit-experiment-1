@@ -15,7 +15,17 @@ export function renderCalibrationScreen() {
     <div class="hero" style="max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center;">
       <div id="calibration-header" style="display: block;">
         <h1>Calibration</h1>
-        <p>Before starting calibration, make sure you are completing the experiment on the same screen that your webcam is viewing. Sit approximately an arm’s length from the screen and position yourself so that your face is clearly visible to the webcam. Keep your head as still as possible and follow the red dot using only your eyes. You may find it helpful to move your mouse cursor along with the red dot. Wait until the fixation counter begins increasing before starting calibration. If the counter is not increasing, adjust your position or webcam view and try again.</p>
+        <div style="text-align: left; margin: 0 auto; max-width: 560px;">
+          <p>Before starting calibration, follow these steps:</p>
+          <ul style="text-align: left; margin: 0; padding-left: 20px;">
+            <li>Use the screen that the webcam is currently pointed at, or the external webcam’s active display.</li>
+            <li>Sit about an arm’s length from the screen and make sure your face is clearly visible.</li>
+            <li>Keep your head as still as possible and follow the red dot using only your eyes.</li>
+            <li>You may find it helpful to move your mouse cursor along with the red dot.</li>
+            <li>Wait until the fixation counter begins increasing before starting calibration.</li>
+            <li>If the counter does not increase, adjust your position or webcam view and try again.</li>
+          </ul>
+        </div>
       </div>
 
       <div id="status">

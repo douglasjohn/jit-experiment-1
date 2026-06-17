@@ -42,7 +42,7 @@ export const CONFIG = {
    *
    * Example: 'https://app.prolific.com/submissions/complete?cc=XXXXXXXX'
    */
-  PROLIFIC_COMPLETION_URL: 'https://app.prolific.com/submissions/complete?cc=CEJOJZ3V',
+  PROLIFIC_COMPLETION_URL: 'https://app.prolific.com/submissions/complete?cc=CIYH3F3H',
 
   /**
    * Server endpoint that receives the JSON data payload via HTTP POST.
@@ -148,15 +148,18 @@ export const CONFIG = {
   /**
    * When true, the `GazeManager` will POST incremental gaze chunks to
    * `${CONFIG.DATA_ENDPOINT}/gaze-chunk` every `GAZE_STREAM_INTERVAL_MS`.
-   * The server needs to accept these partial uploads. Default: disabled.
+   * The server needs to accept these partial uploads. Default: enabled.
    */
-  GAZE_STREAMING_ENABLED: false,
+  GAZE_STREAMING_ENABLED: true,
 
   /** Interval between gaze chunk uploads (ms) */
-  GAZE_STREAM_INTERVAL_MS: 5000,
+  GAZE_STREAM_INTERVAL_MS: 15000,
 
   /** Maximum number of gaze samples sent per chunk (0 = unlimited) */
-  GAZE_CHUNK_MAX_SAMPLES: 0,
+  GAZE_CHUNK_MAX_SAMPLES: 500,
+
+  /** If true, successfully uploaded gaze samples are removed from local memory. */
+  GAZE_STREAM_DISCARD_AFTER_UPLOAD: true,
 
   // ── INTERNAL (do not edit) ────────────────────────────────────────────────
   RESEARCHER_MODE,

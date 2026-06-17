@@ -37,7 +37,8 @@ export class GazeManager {
     this._lastGazeLogAt    = 0;
     this._lastRawSampleAt  = 0;
     // Streaming/upload state
-    this._lastGazeSentIndex = 0;
+    this._uploadedGazeSampleCount = 0;
+    this._gazeChunkSequence = 0;
     this._uploaderIntervalId = null;
     this._uploadInFlight = false;
 
@@ -313,13 +314,12 @@ export class GazeManager {
     if (this._uploadInFlight) return;
     if (!CONFIG.DATA_ENDPOINT) return;
 
-    const start = this._lastGazeSentIndex || 0;
     const all = sessionData.gazeLog || [];
-    if (start >= all.length) return; // nothing new
+    if (!all.length) return; // nothing to upload
 
     const maxSamples = CONFIG.GAZE_CHUNK_MAX_SAMPLES || 0;
-    const end = maxSamples > 0 ? Math.min(all.length, start + maxSamples) : all.length;
-    const chunk = all.slice(start, end);
+    const chunkSize = maxSamples > 0 ? Math.min(all.length, maxSamples) : all.length;
+    const chunk = all.slice(0, chunkSize);
     if (!chunk.length) return;
 
     const endpoint = `${CONFIG.DATA_ENDPOINT.replace(/\/+$/, '')}/gaze-chunk`;
@@ -330,7 +330,8 @@ export class GazeManager {
         study_id: sessionData.STUDY_ID,
         session_id: sessionData.SESSION_ID,
       },
-      chunk_start_index: start,
+      chunk_sequence: this._gazeChunkSequence,
+      chunk_start_index: this._uploadedGazeSampleCount,
       chunk_length: chunk.length,
       gazeLog: chunk,
       timestamp: Date.now(),
@@ -344,7 +345,13 @@ export class GazeManager {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      this._lastGazeSentIndex = end;
+
+      this._uploadedGazeSampleCount += chunk.length;
+      this._gazeChunkSequence += 1;
+      if (CONFIG.GAZE_STREAM_DISCARD_AFTER_UPLOAD) {
+        sessionData.gazeLog.splice(0, chunk.length);
+      }
+
       sessionData.events.push({ type: 'gaze-chunk-sent', timestamp: Date.now(), length: chunk.length });
     } catch (err) {
       console.error('Gaze chunk upload failed:', err);

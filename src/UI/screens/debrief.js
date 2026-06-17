@@ -37,7 +37,11 @@ export function renderDebriefScreen({ placeholder = false } = {}) {
 
 // ── Payload assembly ──────────────────────────────────────────────────────────
 
-function _assemblePayload() {
+/**
+ * Assembles the full in-memory payload for local use (download fallback,
+ * replay, etc.). Always includes gazeLog and taskStimuli.
+ */
+function _assembleFullPayload() {
   if (window._calibrationSystem && !sessionData.calibrationQuality) {
     sessionData.calibrationQuality = {
       biasX:               window._calibrationSystem.biasX  || 0,
@@ -69,9 +73,6 @@ function _assemblePayload() {
     gazeInitialized:    sessionData.gazeInitialized,
 
     // ── Gaze data ─────────────────────────────────────────────────────────────
-    // gazeLog is the primary continuous stream (~30 fps during tasks).
-    // fixationLog contains detected fixation events.
-    // rawGazeWindows contains short bursts captured around probe events.
     gazeLog:            sessionData.gazeLog,
     fixationLog:        sessionData.fixationLog,
     rawGazeWindows:     sessionData.rawGazeWindows,
@@ -80,7 +81,7 @@ function _assemblePayload() {
     // ── Behavioural data ──────────────────────────────────────────────────────
     mouseEvents:        sessionData.mouseEvents,
     clickEvents:        sessionData.clickEvents,
-    scrollEvents:       sessionData.scrollEvents,   // ← new: required for scroll-aware replay
+    scrollEvents:       sessionData.scrollEvents,
 
     // ── Task responses & probes ───────────────────────────────────────────────
     taskResponses:      sessionData.taskResponses,
@@ -90,12 +91,107 @@ function _assemblePayload() {
     // ── Workload ──────────────────────────────────────────────────────────────
     nasaTLX:            sessionData.nasaTLX,
 
-    // ── Replay-friendly stimulus payload ───────────────────────────────────
+    // ── Replay-friendly stimulus payload ─────────────────────────────────────
     taskStimuli:        _getTaskStimuli(),
 
-    // ── Full event log ──────────────────────────────────────────────────────
+    // ── Full event log ────────────────────────────────────────────────────────
     events:             sessionData.events,
   };
+}
+
+/**
+ * Assembles the slim payload sent to the server via POST.
+ *
+ * WHY gazeLog IS EXCLUDED:
+ *   When GAZE_STREAMING_ENABLED is true (which it must be for long sessions),
+ *   gazeLog has already been uploaded in 30-second chunks via /save-jit/gaze-chunk.
+ *   The server merges those chunks back into the final session file automatically
+ *   (see mergeChunkGaze in server.js). Sending gazeLog again here would:
+ *     1. Double the data on disk.
+ *     2. Push the POST body over nginx's client_max_body_size (typically 1 MB
+ *        for university proxies), causing a 413 that drops the entire session.
+ *
+ * WHY taskStimuli IS EXCLUDED:
+ *   Each task's stimulus_html can be several KB of markup × 8 tasks ≈ 50–200 KB.
+ *   It is only needed for the replay player, not for analysis. The server
+ *   re-serves it from the compiled session file fetched in _fetchCompiledSession().
+ *
+ * The slim POST body is typically under 300 KB regardless of session length.
+ */
+function _assembleSlimPayload() {
+  if (window._calibrationSystem && !sessionData.calibrationQuality) {
+    sessionData.calibrationQuality = {
+      biasX:               window._calibrationSystem.biasX  || 0,
+      biasY:               window._calibrationSystem.biasY  || 0,
+      qualityMeasurements: window._calibrationSystem.qualityMeasurements || [],
+    };
+  }
+
+  return {
+    // ── Identifiers ──────────────────────────────────────────────────────────
+    participantId:  sessionData.participantId,
+    participantIDs: {
+      prolific_pid: sessionData.PROLIFIC_PID,
+      study_id:     sessionData.STUDY_ID,
+      session_id:   sessionData.SESSION_ID,
+    },
+
+    // ── Timing ───────────────────────────────────────────────────────────────
+    timestamps: {
+      startTime:       sessionData.startTime,
+      consentTime:     sessionData.consentTimestamp,
+      endTime:         sessionData.endTime,
+      durationSeconds: (sessionData.endTime - sessionData.startTime) / 1000,
+    },
+
+    // ── Environment & calibration ────────────────────────────────────────────
+    environmentCheck:   sessionData.environmentCheck,
+    calibrationQuality: sessionData.calibrationQuality,
+    gazeInitialized:    sessionData.gazeInitialized,
+
+    // ── Gaze metadata (not the log itself — that's in chunks on the server) ──
+    // gazeLog is intentionally omitted. The server merges it from chunks.
+    gazeLog_sample_count: (sessionData.gazeLog || []).length,
+    gazeLog_streamed:     CONFIG.GAZE_STREAMING_ENABLED,
+    fixationLog:          sessionData.fixationLog,
+    rawGazeWindows:       sessionData.rawGazeWindows,
+    gazeManagerStatus:    sessionData.gazeManagerStatus,
+
+    // ── Behavioural data ──────────────────────────────────────────────────────
+    mouseEvents:        sessionData.mouseEvents,
+    clickEvents:        sessionData.clickEvents,
+    scrollEvents:       sessionData.scrollEvents,
+
+    // ── Task responses & probes ───────────────────────────────────────────────
+    taskResponses:      sessionData.taskResponses,
+    probeResponses:     sessionData.probeResponses,
+    demographics:       sessionData.demographics,
+
+    // ── Workload ──────────────────────────────────────────────────────────────
+    nasaTLX:            sessionData.nasaTLX,
+
+    // ── taskStimuli intentionally omitted (large HTML; only needed for replay)
+    // The server merges it when _fetchCompiledSession() runs after a successful POST.
+
+    // ── Full event log ────────────────────────────────────────────────────────
+    events:             sessionData.events,
+  };
+}
+
+async function _fetchCompiledSession() {
+  const params = new URLSearchParams({
+    session_id:    sessionData.SESSION_ID    || '',
+    study_id:      sessionData.STUDY_ID      || '',
+    prolific_pid:  sessionData.PROLIFIC_PID  || '',
+    participantId: sessionData.participantId || '',
+  });
+
+  const response = await fetch(`${CONFIG.DATA_ENDPOINT}/session?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error(`Compiled session fetch failed: ${response.status}`);
+  }
+
+  return response.json();
 }
 
 function _getTaskStimuli() {
@@ -120,13 +216,15 @@ function _getTaskStimuli() {
 // ── Submission ────────────────────────────────────────────────────────────────
 
 async function _submitSessionData() {
-  // Ensure any background gaze uploads complete before final submission
+  // Flush any remaining gaze samples to the server before the final POST.
+  // This uploads the tail end of gazeLog that hasn't been chunked yet,
+  // so the server has 100% of the gaze data before we POST the slim payload.
   try {
     if (window.gazeManager && typeof window.gazeManager.flushAndStopGazeUpload === 'function') {
       await window.gazeManager.flushAndStopGazeUpload();
     }
   } catch (err) {
-    console.warn('Final gaze upload failed (continuing):', err);
+    console.warn('Final gaze flush failed (continuing anyway):', err);
   }
 
   if (!CONFIG.DATA_ENDPOINT) {
@@ -135,25 +233,42 @@ async function _submitSessionData() {
   }
 
   try {
-    const payload  = _assemblePayload();
+    // POST the slim payload — gazeLog is already on the server as chunks.
+    // This keeps the POST body under ~300 KB regardless of session length,
+    // avoiding the nginx 413 that kills long sessions.
+    const slimPayload = _assembleSlimPayload();
     const response = await fetch(CONFIG.DATA_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(slimPayload),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    _showDebriefSuccess(payload);
+
+    // After the server merges chunks into the session file, fetch the compiled
+    // payload (which includes merged gazeLog) for the replay player.
+    let compiledPayload = null;
+    try {
+      compiledPayload = await _fetchCompiledSession();
+      console.log('Loaded compiled replay payload from server (includes merged gaze chunks).');
+    } catch (fetchError) {
+      console.warn('Could not load compiled replay payload — falling back to in-memory payload:', fetchError);
+    }
+
+    // For replay, prefer the compiled (server-merged) payload; fall back to
+    // the full in-memory payload if the fetch failed.
+    const replayPayload = compiledPayload || _assembleFullPayload();
+    _showDebriefSuccess(replayPayload);
+
   } catch (error) {
     console.error('Data submission failed:', error);
+    // Fall back to local download — participant keeps everything including gazeLog.
     _showDownloadFallback();
   }
 }
 
 // ── Success screen ────────────────────────────────────────────────────────────
 
-function _showDebriefSuccess(payload) {
+function _showDebriefSuccess(replayPayload) {
   const el = document.getElementById('screen-debrief');
   if (!el) return;
 
@@ -181,15 +296,8 @@ function _showDebriefSuccess(payload) {
       </div>
     </div>`;
 
-  // Wire replay button (payload captured in closure)
-  const replayBtn = document.getElementById('debrief-replay-btn');
-
-  replayBtn.addEventListener('click', () => launchReplay(payload));
-
-  replayBtn.setAttribute(
-    'title',
-    'Watch back your experiment if you would like to'
-  );
+  document.getElementById('debrief-replay-btn')
+    .addEventListener('click', () => launchReplay(replayPayload));
 
   setTimeout(() => {
     const wrap = document.getElementById('completion-btn-wrap');
@@ -214,7 +322,9 @@ function _showDownloadFallback() {
   const el = document.getElementById('screen-debrief');
   if (!el) return;
 
-  const payload  = _assemblePayload();
+  // Use the FULL payload for the download — includes gazeLog and taskStimuli
+  // since the server is unreachable and we need everything locally.
+  const payload  = _assembleFullPayload();
   const pid      = sessionData.participantId || 'unknown';
   const filename = `session-${pid}-${Date.now()}.json`;
   const dataUrl  = 'data:application/json;charset=utf-8,' +
@@ -278,7 +388,6 @@ function _showDownloadFallback() {
       </div>
     </div>`;
 
-  // Wire replay button (payload already assembled above)
   document.getElementById('debrief-replay-btn')
     .addEventListener('click', () => launchReplay(payload));
 }

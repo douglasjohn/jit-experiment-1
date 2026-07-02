@@ -6,6 +6,8 @@ import { renderTaskScreen } from './task';
 import { renderProbeScreen } from './probe';
 import { renderNasaTlxScreen } from './nasatlx';
 import { renderDebriefScreen } from './debrief';
+import { sessionData } from '../../experiment/session';
+import { setSessionPhase, sendCheckpoint } from '../../experiment/checkpoint';
 
 export function renderCalibrationScreen() {
   const el = document.getElementById('screen-calibration');
@@ -116,17 +118,44 @@ export function renderCalibrationScreen() {
     continueBtn.style.display = 'none';
     calibrateBtn.disabled = true;
     calibrateBtn.textContent = 'Calibrating...';
-    // Hide header and instructions during calibration
     header.style.display = 'none';
 
+    // ── Record this attempt NOW, before we know whether it'll succeed ────────
+    // This is what makes the count survive a crash mid-calibration: the record
+    // exists and is checkpointed to the server immediately, not only on success.
+    sessionData.calibrationAttempts = sessionData.calibrationAttempts || [];
+    const attemptRecord = {
+      attempt:     sessionData.calibrationAttempts.length + 1,
+      startedAt:   Date.now(),
+      completedAt: null,
+      meanError:   null,
+      maxError:    null,
+      passedGate:  null,
+    };
+    sessionData.calibrationAttempts.push(attemptRecord);
+    setSessionPhase('calibrating'); // also fires an immediate checkpoint
+
+    window.gazeManager?.beginCalibrationLogging();
+
     calibrationSystem.onQualityMeasured = (quality) => {
+      const record = sessionData.calibrationAttempts[sessionData.calibrationAttempts.length - 1];
+      if (record && record.completedAt === null) {
+        record.completedAt = Date.now();
+        record.meanError    = isNaN(quality.meanError) ? null : quality.meanError;
+        record.maxError     = isNaN(quality.maxError)  ? null : quality.maxError;
+        // record.sampleCount  = quality.sampleCount ?? quality.measurements?.length ?? null; // NEW
+        const mseThreshold   = calibrationSystem?.MSE_THRESHOLD || Infinity;
+        record.passedGate    = quality.meanError !== undefined && quality.meanError < mseThreshold;
+      }
+      sendCheckpoint('calibration-attempt-completed'); // push the result right away, don't wait for the timer
+
       showQuality(quality);
     };
 
     calibrationSystem.onCalibrationComplete = (result) => {
       console.log('Calibration complete');
 
-      window.gazeManager?.init();
+      window.gazeManager?.endCalibrationLogging();
 
       if (!latestQuality) {
         if (Array.isArray(result)) {

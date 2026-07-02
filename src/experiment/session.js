@@ -20,7 +20,19 @@ export const sessionData = {
   // ── Eye-tracking state ────────────────────────────────────────────────────
   gazeInitialized:          false,
   gazeInitializationError:  null,
+// ── Calibration ───────────────────────────────────────────────────────────
+  environmentCheck:         null,
+  calibrationQuality:       null,
 
+  /**
+   * calibrationAttempts — one record per calibration attempt the participant
+   * made, in order, including attempts that were abandoned or crashed before
+   * completing (those just have completedAt: null). This is what lets you
+   * count calibration attempts even for participants who never finished
+   * the experiment.
+   * Schema: [{attempt, startedAt, completedAt, meanError, maxError, passedGate}]
+   */
+  calibrationAttempts:      [],
   // ── Calibration ───────────────────────────────────────────────────────────
   environmentCheck:         null,
   calibrationQuality:       null,

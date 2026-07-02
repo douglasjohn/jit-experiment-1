@@ -42,7 +42,7 @@ export const CONFIG = {
    *
    * Example: 'https://app.prolific.com/submissions/complete?cc=XXXXXXXX'
    */
-  PROLIFIC_COMPLETION_URL: 'https://app.prolific.com/submissions/complete?cc=CIYH3F3H',
+  PROLIFIC_COMPLETION_URL: 'https://app.prolific.com/submissions/complete?cc=C1ACHGYG',
 
   /**
    * Server endpoint that receives the JSON data payload via HTTP POST.
@@ -160,6 +160,9 @@ export const CONFIG = {
 
   /** If true, successfully uploaded gaze samples are removed from local memory. */
   GAZE_STREAM_DISCARD_AFTER_UPLOAD: true,
+
+  /** Interval between lightweight session checkpoint POSTs (ms) */
+  CHECKPOINT_INTERVAL_MS: 20000,
 
   // ── INTERNAL (do not edit) ────────────────────────────────────────────────
   RESEARCHER_MODE,

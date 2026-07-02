@@ -21,6 +21,7 @@ import { initRouter } from './experiment/router-init';
 import { initTaskRunner } from './experiment/taskRunner';
 import { CONFIG } from './experiment/config';
 import { captureProlificParams, sessionData } from './experiment/session';
+import { initCheckpointSync } from './experiment/checkpoint';
 
 import { IVTFixationDetector } from './tracker/fixationDetector';
 import { CalibrationSystem } from './tracker/calibration';
@@ -51,6 +52,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Pre-render all screen placeholders so the DOM containers exist
   renderLoadingScreen();
   captureProlificParams();
+  initCheckpointSync();
   renderProlificWelcomeScreen();
   renderCameraRecordingNoticeScreen();
   renderDemographicsScreen();
@@ -113,7 +115,7 @@ window.startWebEyeTrack = async function startWebEyeTrack() {
     const fixationDetector = new IVTFixationDetector();
     const gazeManager      = new GazeManager();
     const taskRunner       = initTaskRunner(gazeManager);
-
+    gazeManager.setFixationDetector(fixationDetector);
     window.gazeManager = gazeManager;
     window.taskRunner  = taskRunner;
 
@@ -204,7 +206,7 @@ window.startWebEyeTrackResearcherMode = async function startWebEyeTrackResearche
     const fixationDetector = new IVTFixationDetector();
     const gazeManager      = new GazeManager();
     const taskRunner       = initTaskRunner(gazeManager);
-
+    gazeManager.setFixationDetector(fixationDetector);
     window.gazeManager = gazeManager;
     window.taskRunner  = taskRunner;
 

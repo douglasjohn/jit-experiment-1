@@ -7,7 +7,7 @@ const DATA_DIR = process.env.DATA_DIR || '/home/jd2117/private/jit';
 const PORT = process.env.PORT || 3002;
 const HOST = process.env.HOST || '0.0.0.0';
 const ALLOWED_ORIGIN = process.env.CORS_ORIGIN || '*';
-const MAX_BODY_BYTES = Number(process.env.MAX_BODY_BYTES || 100 * 1024 * 1024); // 100 MB max request body
+const MAX_BODY_BYTES = Number(process.env.MAX_BODY_BYTES || 500 * 1024 * 1024); // 500 MB max request body
 
 const SAVE_ENDPOINT = '/save-jit';
 const CHUNK_ENDPOINT = '/save-jit/gaze-chunk';
@@ -160,7 +160,6 @@ async function handleSessionFetch(req, res, searchParams) {
   console.log('Serving compiled session payload:', { sessionKey, query: queryDebug });
   send(res, 200, payload, 'application/json', req);
 }
-
 
 async function handleSavePayload(req, res, body) {
   const sessionKey = getSessionKey(body);

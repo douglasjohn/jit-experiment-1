@@ -31,8 +31,8 @@ export class CalibrationSystem {
     } else {
       // Enhanced calibration: stricter and more robust (default)
       this.DWELL_TIME_MS = 3000;     // longer dwell per point
-      this.MEASUREMENT_TIME_MS = 1500; // collect samples for longer
-      this.MIN_SAMPLES = 20;         // require reasonable number of samples
+      this.MEASUREMENT_TIME_MS = 2000; // collect samples for longer
+      this.MIN_SAMPLES = 15;         // require reasonable number of samples
       this.MSE_THRESHOLD = 0.25;     // require MSE < 25% (gating requirement)
       this.USE_OUTLIER_REJECTION = true;
     }

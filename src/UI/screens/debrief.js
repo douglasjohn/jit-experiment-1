@@ -2,6 +2,7 @@ import { sessionData } from '../../experiment/session';
 import { CONFIG } from '../../experiment/config';
 import { TASK_DEFINITIONS } from '../../experiment/taskRunner';
 import { launchReplay } from '../../replay/replayPlayer';
+import { setSessionPhase, stopCheckpointSync } from '../../experiment/checkpoint';
 
 const RESEARCHER_EMAIL = 'jd2117@cam.ac.uk';
 
@@ -70,6 +71,8 @@ function _assembleFullPayload() {
     // ── Environment & calibration ────────────────────────────────────────────
     environmentCheck:   sessionData.environmentCheck,
     calibrationQuality: sessionData.calibrationQuality,
+    calibrationAttempts:      sessionData.calibrationAttempts || [],
+    calibrationAttemptCount: (sessionData.calibrationAttempts || []).length,
     gazeInitialized:    sessionData.gazeInitialized,
 
     // ── Gaze data ─────────────────────────────────────────────────────────────
@@ -147,6 +150,8 @@ function _assembleSlimPayload() {
     // ── Environment & calibration ────────────────────────────────────────────
     environmentCheck:   sessionData.environmentCheck,
     calibrationQuality: sessionData.calibrationQuality,
+    calibrationAttempts:      sessionData.calibrationAttempts || [],
+    calibrationAttemptCount: (sessionData.calibrationAttempts || []).length,
     gazeInitialized:    sessionData.gazeInitialized,
 
     // ── Gaze metadata (not the log itself — that's in chunks on the server) ──
@@ -243,7 +248,9 @@ async function _submitSessionData() {
       body:    JSON.stringify(slimPayload),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-
+    
+    setSessionPhase('completed');
+    stopCheckpointSync();
     // After the server merges chunks into the session file, fetch the compiled
     // payload (which includes merged gazeLog) for the replay player.
     let compiledPayload = null;

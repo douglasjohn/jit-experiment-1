@@ -25,6 +25,7 @@ const GAZE_LOG_INTERVAL_MS = 33;
 
 export class GazeManager {
   constructor() {
+    this._fixationDetector = null;
     this.aois              = [];
     this.probeCallbacks    = new Set();
     this.overrunTimers     = new Map();
@@ -32,6 +33,7 @@ export class GazeManager {
     this.loggingPaused     = false;
     this.initialized       = false;
     this.rawWindowUntil    = 0;
+    this.calibrationLoggingActive = false;
 
     // Timestamps for throttling log writes
     this._lastGazeLogAt    = 0;
@@ -107,11 +109,30 @@ export class GazeManager {
 
   // ── Task lifecycle ──────────────────────────────────────────────────────────
 
+  // ── Fixation detector wiring (NEW) ──────────────────────────────────────────
+
+  setFixationDetector(detector) {
+    this._fixationDetector = detector;
+  }
+
+  /**
+   * Force-end whatever the detector has accumulated right now and log it,
+   * tagged with whichever task it actually belongs to. Call this at every
+   * task boundary so a fixation can never silently span across one.
+   */
+  _flushFixationDetector(taskIdForFlushedSegment) {
+    if (!this._fixationDetector) return;
+    const partial = this._fixationDetector.flushAndReset(performance.now());
+    if (partial) this.handleFixation(partial, taskIdForFlushedSegment);
+  }
+
   setActiveTask(taskId) {
+    this._flushFixationDetector(this.getCurrentTaskId());
     this.activeTasks.set(taskId, { taskId, startTime: performance.now() });
   }
 
   clearTaskState(taskId) {
+    this._flushFixationDetector(taskId);
     this.activeTasks.delete(taskId);
     const timerId = this.overrunTimers.get(taskId);
     if (timerId) { clearTimeout(timerId); this.overrunTimers.delete(taskId); }
@@ -131,6 +152,17 @@ export class GazeManager {
   resumeLogging() {
     this.loggingPaused = false;
     sessionData.gazeManagerStatus.push({ type: 'resumed', timestamp: Date.now() });
+  }
+
+  beginCalibrationLogging() {
+    if (!this.initialized) this.init();
+    this.calibrationLoggingActive = true;
+    sessionData.gazeManagerStatus.push({ type: 'calibration-started', timestamp: Date.now() });
+  }
+
+  endCalibrationLogging() {
+    this.calibrationLoggingActive = false;
+    sessionData.gazeManagerStatus.push({ type: 'calibration-ended', timestamp: Date.now() });
   }
 
   // ── Core gaze sample handler ────────────────────────────────────────────────
@@ -171,7 +203,7 @@ export class GazeManager {
 
     // ── Continuous gaze log (primary data stream — ~30 fps during active tasks) ─
     if (
-      taskId &&
+      (taskId || this.calibrationLoggingActive) &&
       gazeState === 'open' &&
       !isDrift &&
       !this.loggingPaused &&
@@ -224,11 +256,15 @@ export class GazeManager {
 
     sessionData.fixationLog.push({
       t:           fixation.endTime,
+      start_t:     fixation.startTime,     // NEW — segment start, needed to merge rolled segments
       x:           fixation.x,
       y:           fixation.y,
       duration_ms: fixation.durationMs,
       aoi_id:      aoi?.id || null,
       task_id:     resolvedTaskId,
+      fixation_id: fixation.fixationId ?? null,  // NEW — shared across rolled segments
+      seq:         fixation.seq ?? 0,            // NEW — order within that fixation
+      sample_count: fixation.sampleCount ?? null, // NEW — useful for debugging/weighting
     });
 
     if (CONFIG.STUDY_MODE === 'intervention') {

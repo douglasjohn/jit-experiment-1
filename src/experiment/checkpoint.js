@@ -46,6 +46,7 @@ function _buildCheckpointPayload(reason) {
     startTime:                sessionData.startTime || null,
     lastHeartbeatAt:          Date.now(),
     gazeInitialized:          !!sessionData.gazeInitialized,
+    environmentCheck:         sessionData.environmentCheck || null,
     calibrationAttempts:      sessionData.calibrationAttempts || [],
     calibrationAttemptCount: (sessionData.calibrationAttempts || []).length,
     taskResponses:            sessionData.taskResponses || [],

@@ -8,3 +8,7 @@ export const experimentState = {
 
   inTask: false
 };
+
+export function getState() {
+  return experimentState;
+}

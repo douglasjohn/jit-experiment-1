@@ -1,12 +1,15 @@
 import { sessionData } from '../experiment/session';
 
 const PROBE_OVERLAY_ID = 'experience-probe-overlay';
+const INTERVENTION_OVERLAY_ID = 'jit-intervention-overlay';
 let probeState = {
   visible: false,
   responseStartAt: 0,
   selectedClarity: null,
   resolveComplete: null
 };
+
+let interventionState = { timerId: null };
 
 function getProbeOverlayRoot() {
   let root = document.getElementById(PROBE_OVERLAY_ID);
@@ -16,6 +19,31 @@ function getProbeOverlayRoot() {
     document.body.appendChild(root);
   }
   return root;
+}
+
+function getInterventionOverlayRoot() {
+  let root = document.getElementById(INTERVENTION_OVERLAY_ID);
+  if (!root) {
+    root = document.createElement('div');
+    root.id = INTERVENTION_OVERLAY_ID;
+    root.style.cssText = 'position:fixed; inset:0; z-index:1600; pointer-events:none;';
+    document.body.appendChild(root);
+  }
+  return root;
+}
+
+function clearInterventionOverlay() {
+  const root = getInterventionOverlayRoot();
+  if (interventionState.timerId) {
+    window.clearTimeout(interventionState.timerId);
+    interventionState.timerId = null;
+  }
+  root.innerHTML = '';
+  root.style.display = 'none';
+}
+
+function hideInterventionOverlay() {
+  clearInterventionOverlay();
 }
 
 export function initExperienceProbeOverlay() {

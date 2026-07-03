@@ -110,6 +110,23 @@ export const CONFIG = {
    */
   AUTO_ADVANCE_TIMEOUTS: TASK_TIMEOUTS,
 
+  // ── INTERVENTION CONDITION ────────────────────────────────────────────────
+  /**
+   * Which JIT intervention arm is active. Change THIS to switch conditions
+   * between deployments — nothing else in the codebase should need editing.
+   *
+   * 'no_help'            — confusion classifier fires, nothing is shown
+   *                         (current data collection deployment)
+   * 'static_help'         — fixed intervention per (aoiType, saLevel), no learning
+   * 'personalized_help'   — bandit selects among 4 candidate arms per
+   *                          (aoiType, saLevel), with population-prior +
+   *                          per-subject Thompson Sampling updates
+   *
+   * Can also be overridden per-deployment via URL param for piloting:
+   * ?condition=personalized_help
+   */
+  INTERVENTION_CONDITION: params.get('condition') || 'no_help',
+
   // ── STUDY MODE ────────────────────────────────────────────────────────────
 
   /**

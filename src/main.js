@@ -32,6 +32,8 @@ import { startInputTracking } from './tracker/inputTracker';
 
 import { isMobileDevice } from './utils/deviceCheck';
 import { initExperiment } from './experiment/init';
+import { createLiveConfusionClassifier } from './intervention/liveClassifier';
+import { onConfusionFired, onConfusionReFired } from './intervention/classifier';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GLOBAL STATE
@@ -118,6 +120,8 @@ window.startWebEyeTrack = async function startWebEyeTrack() {
     gazeManager.setFixationDetector(fixationDetector);
     window.gazeManager = gazeManager;
     window.taskRunner  = taskRunner;
+
+    attachInterventionClassifier(gazeManager);
 
     let calibrationSystem;
 
@@ -210,6 +214,8 @@ window.startWebEyeTrackResearcherMode = async function startWebEyeTrackResearche
     window.gazeManager = gazeManager;
     window.taskRunner  = taskRunner;
 
+    attachInterventionClassifier(gazeManager);
+
     let tracker;
     let calibrationSystem;
 
@@ -253,6 +259,31 @@ window.startWebEyeTrackResearcherMode = async function startWebEyeTrackResearche
     console.error('Researcher mode init error:', error);
   }
 };
+
+function attachInterventionClassifier(gazeManager) {
+  if (CONFIG.INTERVENTION_CONDITION === 'no_help') return;
+
+  const liveClassifier = createLiveConfusionClassifier({
+    onFire: (payload) => onConfusionFired(payload),
+    getSubjectId: () => sessionData.participantId || sessionData.PROLIFIC_PID || 'participant-1',
+  });
+
+  const unsubscribe = gazeManager.onGazeSample((payload) => {
+    if (!payload?.task_id) return;
+    liveClassifier(payload);
+  });
+
+  window.__jitLiveClassifier = liveClassifier;
+  window.__jitFireConfusion = (payload) => onConfusionFired({
+    subjectId: sessionData.participantId || sessionData.PROLIFIC_PID || 'participant-1',
+    aoiType: payload?.aoiType || payload?.aoi_id || 'unknown',
+    saLevel: payload?.saLevel || 2,
+    triggeringFeature: payload?.triggeringFeature || 'manual_trigger',
+    confidence: payload?.confidence ?? 0.9,
+    ...payload,
+  });
+  window.__jitDestroyLiveClassifier = unsubscribe;
+}
 
 function _showResearcherOverlay(gazeManager) {
   const overlay = document.createElement('div');

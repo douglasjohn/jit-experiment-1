@@ -244,3 +244,93 @@ export function moveGazeDot(x, y, visible = false) {
 export function showFixationIndicator(x, y) {
   // intentionally disabled (kept for future use)
 }
+
+// ── APPEND TO src/UI/overlays.js ──────────────────────────────────────────
+// Renders intervention arms selected by static_help / personalized_help.
+// Reuses getInterventionOverlayRoot / clearInterventionOverlay / interventionState
+// already defined above in this file.
+
+const RENDERERS = {
+  'cue-arrow': (root, payload) => {
+    root.innerHTML = `
+      <div style="position:absolute; top:24px; left:50%; transform:translateX(-50%);
+        background:#111827; color:#fff; padding:10px 16px; border-radius:10px;
+        font-family:system-ui,sans-serif; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
+        ➜ ${payload.text}
+      </div>`;
+  },
+  'cue-spotlight': (root, payload) => {
+    root.innerHTML = `
+      <div style="position:absolute; top:24px; left:50%; transform:translateX(-50%);
+        background:#4c1d95; color:#fff; padding:10px 16px; border-radius:10px;
+        font-family:system-ui,sans-serif; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
+        ${payload.text}
+      </div>`;
+  },
+  'highlight-tooltip': (root, payload) => {
+    root.innerHTML = `
+      <div style="position:absolute; top:24px; left:50%; transform:translateX(-50%);
+        background:#1d4ed8; color:#fff; padding:10px 16px; border-radius:10px;
+        font-family:system-ui,sans-serif; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
+        ${payload.text}
+      </div>`;
+  },
+  'highlight-inline': (root, payload) => {
+    root.innerHTML = `
+      <div style="position:absolute; top:24px; left:50%; transform:translateX(-50%);
+        background:#065f46; color:#fff; padding:10px 16px; border-radius:10px;
+        font-family:system-ui,sans-serif; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
+        ${payload.text}
+      </div>`;
+  },
+  'example-toast': (root, payload) => {
+    root.innerHTML = `
+      <div style="position:absolute; bottom:32px; left:50%; transform:translateX(-50%);
+        background:#111827; color:#fff; padding:10px 16px; border-radius:10px;
+        font-family:system-ui,sans-serif; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
+        ${payload.text}
+      </div>`;
+  },
+  'prediction-toast': (root, payload) => {
+    root.innerHTML = `
+      <div style="position:absolute; bottom:32px; left:50%; transform:translateX(-50%);
+        background:#92400e; color:#fff; padding:10px 16px; border-radius:10px;
+        font-family:system-ui,sans-serif; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
+        ${payload.text}
+      </div>`;
+  },
+  'example-modal': (root, payload) => {
+    root.innerHTML = `
+      <div style="position:absolute; inset:0; background:rgba(0,0,0,0.45); display:flex;
+        align-items:center; justify-content:center; pointer-events:auto;">
+        <div style="background:#fff; border-radius:16px; padding:24px; max-width:420px;
+          font-family:system-ui,sans-serif; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+          <h3 style="margin:0 0 10px; font-size:18px;">${payload.title}</h3>
+          <p style="margin:0 0 16px; color:#374151;">${payload.body}</p>
+          <button id="jit-modal-dismiss" style="padding:8px 16px; border-radius:8px; border:none;
+            background:#4f46e5; color:#fff; cursor:pointer;">Got it</button>
+        </div>
+      </div>`;
+    root.querySelector('#jit-modal-dismiss')?.addEventListener('click', () => clearInterventionOverlay());
+  },
+};
+
+export function showIntervention(render, decision) {
+  if (!render || !RENDERERS[render.type]) {
+    console.warn('[overlays] unknown intervention render type:', render?.type);
+    return;
+  }
+  const root = getInterventionOverlayRoot();
+  clearInterventionOverlay(); // clear any prior intervention first
+  root.style.display = 'block';
+  root.style.pointerEvents = render.type === 'example-modal' ? 'auto' : 'none';
+
+  RENDERERS[render.type](root, render.payload);
+
+  // Auto-dismiss toasts/cues/tooltips after their duration. Modals wait for
+  // explicit dismissal (button click above) since they carry pointer-events.
+  if (render.type !== 'example-modal') {
+    const duration = render.payload?.durationMs ?? 3500;
+    interventionState.timerId = window.setTimeout(() => clearInterventionOverlay(), duration);
+  }
+}

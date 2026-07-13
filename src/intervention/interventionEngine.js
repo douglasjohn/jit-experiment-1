@@ -13,7 +13,7 @@
 
 import { CONFIG } from '../experiment/config.js';
 import { getArms, getStaticArm } from '../experiment/interventions.js';
-import { logEvent } from '../experiment/logger.js';
+import { sessionData } from '../experiment/session.js';
 
 export const CONDITIONS = {
   NO_HELP: 'no_help',
@@ -184,15 +184,15 @@ export function handleConfusionEvent(event, condition) {
     timestamp: event.timestamp ?? Date.now(),
   };
 
-  logEvent({
-    type: 'intervention-decision',
+  sessionData.interventionEvents = sessionData.interventionEvents || [];
+  sessionData.interventionEvents.push({
+    type: 'intervention-decision-engine',
     subject_id: event.subjectId,
     condition,
     aoi_type: event.aoiType,
     sa_level: event.saLevel,
     arm_id: arm ? arm.armId : null,
     arm_family: arm ? arm.family : null,
-    triggering_feature: event.triggeringFeature ?? null,
     timestamp: decision.timestamp,
   });
 
@@ -210,14 +210,15 @@ export function reportOutcome(event, decision, { confusionResolved, cognitiveLoa
   const reward = computeReward({ confusionResolved, cognitiveLoadDelta });
   recordReward(event.subjectId, event.saLevel, decision.arm.armId, reward);
 
-  logEvent({
-    type: 'intervention-outcome',
+  sessionData.interventionEvents = sessionData.interventionEvents || [];
+  sessionData.interventionEvents.push({
+    type: 'intervention-decision-engine',
     subject_id: event.subjectId,
+    condition,
+    aoi_type: event.aoiType,
     sa_level: event.saLevel,
-    arm_id: decision.arm.armId,
-    confusion_resolved: confusionResolved,
-    cognitive_load_delta: cognitiveLoadDelta,
-    reward,
-    timestamp: Date.now(),
+    arm_id: arm ? arm.armId : null,
+    arm_family: arm ? arm.family : null,
+    timestamp: decision.timestamp,
   });
 }

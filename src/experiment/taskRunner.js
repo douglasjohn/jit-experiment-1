@@ -671,9 +671,9 @@ export const TASK_DEFINITIONS = {
         <div style="max-width:700px;margin:0 auto;">
           <div style="background:#fff;border:1px solid #d1d5db;border-radius:8px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,.1);">
             <div style="display:flex;border-bottom:2px solid #d1d5db;background:#f9fafb;" id="if-tabs">
-              <button type="button" data-tab="0" style="flex:1;padding:16px;background:#fff;border:none;border-bottom:3px solid #4f46e5;cursor:pointer;font-weight:600;color:#1f2937;position:relative;" data-aoi="if-tab-network">Network${isStaticHelp ? generateAoiHamburgerButton('if-tab-network', 'instruction-following') : ''}</button>
-              <button type="button" data-tab="1" style="flex:1;padding:16px;background:#f9fafb;border:none;cursor:pointer;font-size:20px;color:#6b7280;position:relative;" data-aoi="if-tab-security">🔒${isStaticHelp ? generateAoiHamburgerButton('if-tab-security', 'instruction-following') : ''}</button>
-              <button type="button" data-tab="2" style="flex:1;padding:16px;background:#f9fafb;border:none;cursor:pointer;font-weight:600;color:#6b7280;position:relative;" data-aoi="if-tab-advanced">Advanced${isStaticHelp ? generateAoiHamburgerButton('if-tab-advanced', 'instruction-following') : ''}</button>
+              <div data-aoi="if-tab-network" style="flex:1;"><button type="button" data-tab="0" style="width:100%;padding:16px;background:#fff;border:none;border-bottom:3px solid #4f46e5;cursor:pointer;font-weight:600;color:#1f2937;">Network</button>${isStaticHelp ? generateAoiHamburgerButton('if-tab-network', 'instruction-following') : ''}</div>
+              <div data-aoi="if-tab-security" style="flex:1;"><button type="button" data-tab="1" style="width:100%;padding:16px;background:#f9fafb;border:none;cursor:pointer;font-size:20px;color:#6b7280;">🔒</button>${isStaticHelp ? generateAoiHamburgerButton('if-tab-security', 'instruction-following') : ''}</div>
+              <div data-aoi="if-tab-advanced" style="flex:1;"><button type="button" data-tab="2" style="width:100%;padding:16px;background:#f9fafb;border:none;cursor:pointer;font-weight:600;color:#6b7280;">Advanced</button>${isStaticHelp ? generateAoiHamburgerButton('if-tab-advanced', 'instruction-following') : ''}</div>
             </div>
             <div id="if-panel-0" style="padding:24px;display:block;">
               <div style="display:grid;gap:16px;">
@@ -1100,6 +1100,42 @@ export function initTaskRunner(gazeManager) {
 
         ${autoAdvanceBanner}
       </div>`;
+
+    // Scripts inserted via innerHTML do not run, so install these handlers after
+    // the task markup (including its popup) is in the document.
+    window._openAoiHelp = (aoiId) => {
+      const popup = document.getElementById(`static-help-popup-${task.id}`);
+      if (!popup) return;
+      popup.style.display = 'flex';
+      window._currentAoiId = aoiId;
+    };
+    window._closeAoiHelp = () => {
+      const popup = document.getElementById(`static-help-popup-${task.id}`);
+      if (popup) popup.style.display = 'none';
+      window._currentAoiId = null;
+    };
+
+    // HTML controls cannot live directly in SVG <g> elements. Replace the
+    // placeholder with a foreignObject placed beside each line instead.
+    document.querySelectorAll('#task-stimulus svg [data-aoi]').forEach(aoi => {
+      const aoiId = aoi.dataset.aoi;
+      document.querySelectorAll(`[data-aoi-help="${aoiId}"]`).forEach(button => button.remove());
+      const box = aoi.getBBox();
+      const control = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+      control.setAttribute('x', Math.min(box.x + box.width + 12, 760));
+      control.setAttribute('y', Math.max(box.y - 14, 4));
+      control.setAttribute('width', '30');
+      control.setAttribute('height', '30');
+      control.innerHTML = `<button xmlns="http://www.w3.org/1999/xhtml" type="button" aria-label="Help for ${aoiId}"
+        style="width:28px;height:28px;padding:0;background:#f3f4f6;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:16px;color:#374151;"
+      >☰</button>`;
+      control.firstElementChild.onclick = event => {
+        event.stopPropagation();
+        window._openAoiHelp(aoiId);
+        return false;
+      };
+      aoi.appendChild(control);
+    });
 
 
     // Expose logging function globally for static help interactions

@@ -129,7 +129,9 @@ export function createLiveConfusionClassifier({ onFire, getSubjectId }) {
 
       onFire?.({
         subjectId,
+        taskId: payload.task_id || sessionData.currentTaskId || null,
         aoiType,
+        aoiId: payload.aoi_id || null,
         saLevel,
         triggeringFeature,
         confidence: Math.round(probability * 100) / 100,

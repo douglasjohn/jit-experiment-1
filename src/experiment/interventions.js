@@ -293,6 +293,93 @@ setBucket('reading-inference', SA_LEVELS.PROJECTION, [
     { text: 'Apply these concepts to answer questions about specific drugs.', durationMs: 3000 }),
 ]);
 
+// ──────────────────────────────────────────────────────────────────────────
+// AOI-SPECIFIC CONTENT
+// One editable entry per AOI. These are the three interventions shared by
+// static, user-initiated, and system-initiated help. Keep the wording here
+// task-specific; the UI supplies the matching FAQ heading for each SA level.
+// ──────────────────────────────────────────────────────────────────────────
+const AOI_HELP = {};
+
+function setAoiHelp(taskId, entries) {
+  AOI_HELP[taskId] = entries;
+}
+
+setAoiHelp('broken-nav', {
+  'nav-menu': ['Look at the footer area for navigation options.', 'The returns policy is reached from the footer navigation rather than the main menu.', 'After finding the returns policy, select whether you found it in the answer panel.'],
+  'shop-home': ['Look at the footer area for navigation options.', 'The page content is not the route to the returns policy; use the footer navigation.', 'After finding the returns policy, select whether you found it in the answer panel.'],
+  'bn-help-btn': ['Look at the footer area for navigation options.', 'The Help button is not needed; the returns policy is in the footer navigation.', 'After finding the returns policy, select whether you found it in the answer panel.'],
+  'bn-about-link': ['Look at the footer area for navigation options.', 'Open the About menu in the footer to reveal the returns policy link.', 'After finding the returns policy, select whether you found it in the answer panel.'],
+  'bn-selection-panel': ['Look at the footer area for navigation options.', 'Use this panel only after you have located the returns policy.', 'After finding the returns policy, select whether you found it in the answer panel.'],
+});
+
+setAoiHelp('ambiguous-form', {
+  'af-field-1': ['Check the Account nickname field.', 'This field accepts a nickname; use any plausible value.', 'Continue to the next field once a value is entered.'],
+  'af-field-2': ['Check the Portfolio address field and its validation message.', 'This field intentionally rejects some endings; enter a plausible address that avoids the listed endings.', 'Continue after entering a value, even if the task feels ambiguous.'],
+  'af-field-3': ['Check the Correspondence preference field.', 'Enter the contact preference requested by the label.', 'Continue to the next field once a value is entered.'],
+  'af-field-4': ['Check the Notification cadence dropdown.', 'Choose one of the available cadence options.', 'Continue after selecting an option.'],
+  'af-field-5': ['Check the Account classification field.', 'Enter a plausible classification value.', 'Continue to the next field once a value is entered.'],
+  'af-field-6': ['Check the Temporary password field and its validation message.', 'The validator is deliberately confusing; enter a plausible temporary password.', 'Continue after entering a value, then complete the remaining fields.'],
+  'af-field-7': ['Check the Confirm temporary password field and its validation message.', 'Enter a plausible confirmation value; the validation message is part of the task.', 'Continue after entering a value, then complete the remaining fields.'],
+  'af-field-8': ['Check the Pager number field and its validation message.', 'Enter a plausible number that avoids the country codes listed in the message.', 'Continue after entering a value, then submit once every field is complete.'],
+});
+
+setAoiHelp('data-table', {
+  'dt-header': ['Read the column headings before comparing values.', 'Mode share, emissions per kilometre, and weighted emissions are different measures.', 'Use the headings to select the correct values for each answer.'],
+  'dt-row-1': ['Look across the Private Car row.', 'This row combines the largest mode share with high emissions per kilometre.', 'Compare it with the other rows before answering.'],
+  'dt-row-2': ['Look across the Bus row.', 'The weighted-emissions value reflects both the bus share and its emissions per kilometre.', 'Use this row when answering the question about bus emissions.'],
+  'dt-row-3': ['Look across the Cycling row.', 'Cycling has a mode share but zero direct emissions per kilometre.', 'Use that relationship to explain its weighted-emissions result.'],
+  'dt-row-4': ['Look across the Urban Total row.', 'This row summarises the urban modes above it rather than adding a new transport mode.', 'Use it to check the overall pattern before responding.'],
+});
+
+setAoiHelp('math-problem', {
+  'mp-problem': ['Find the patient weight, dosage per kilogram, and daily maximum in the problem statement.', 'Multiply the weight by the dosage per kilogram to calculate one dose.', 'Compare that result with the tablet sizes and daily maximum.'],
+  'mp-table': ['Check the available tablet sizes in the table.', 'The table lists the tablet strengths you can use to discuss the calculated dose.', 'Choose the most appropriate strength or combination for your response.'],
+  'mp-scratchpad': ['Use the scratchpad to record the calculation.', 'Show the weight × dose-per-kilogram calculation so the units remain clear.', 'Use your working to justify the final dose and tablet answer.'],
+});
+
+setAoiHelp('visual-search', {
+  'vs-legend': ['Read the legend to identify each line colour.', 'The legend maps colours to transit lines used in the route diagram.', 'Use those labels when describing the route with the fewest interchanges.'],
+  'vs-line-1': ['Trace the red line and its station labels.', 'A line is useful when it connects the relevant stations directly or at an interchange.', 'Compare its required changes with the other possible routes.'],
+  'vs-line-2': ['Trace the blue line and its station labels.', 'A line is useful when it connects the relevant stations directly or at an interchange.', 'Compare its required changes with the other possible routes.'],
+  'vs-line-3': ['Trace the green line and its station labels.', 'A line is useful when it connects the relevant stations directly or at an interchange.', 'Compare its required changes with the other possible routes.'],
+  'vs-line-4': ['Trace the orange line and its station labels.', 'A line is useful when it connects the relevant stations directly or at an interchange.', 'Compare its required changes with the other possible routes.'],
+  'vs-line-5': ['Trace the purple line and its station labels.', 'A line is useful when it connects the relevant stations directly or at an interchange.', 'Compare its required changes with the other possible routes.'],
+  'vs-line-6': ['Trace the pink line and its station labels.', 'A line is useful when it connects the relevant stations directly or at an interchange.', 'Compare its required changes with the other possible routes.'],
+});
+
+setAoiHelp('instruction-following', {
+  'if-tab-network': ['Check the Network tab and its visible settings.', 'The Network tab contains the security-type setting, not the DNS field.', 'Set or confirm WPA3 here, then move to the tab containing Primary DNS.'],
+  'if-tab-security': ['Look for the tab marked with the lock icon.', 'This tab exposes the Primary DNS setting required by the task.', 'Enter 8.8.8.8 there, then save the configuration.'],
+  'if-tab-advanced': ['Check the Advanced tab label.', 'Advanced settings are not required for this task.', 'Return to the required settings and save once they are complete.'],
+  'if-security': ['Check the Security Type control.', 'The required security type is WPA3.', 'After confirming WPA3, enter the required DNS address and save.'],
+  'if-dns': ['Check the Primary DNS field.', 'The required DNS address is 8.8.8.8.', 'After entering it, click Save Changes.'],
+  'if-save': ['Locate the Save Changes button.', 'Saving applies the WPA3 and DNS configuration you selected.', 'Click Save Changes after both required settings are complete.'],
+});
+
+setAoiHelp('reading-inference', {
+  'ri-p1': ['Read the paragraph on drug absorption and bioavailability.', 'It explains how a drug enters circulation and which factors affect bioavailability.', 'Use these concepts when answering the absorption question.'],
+  'ri-p3': ['Read the paragraph on individual variation in metabolism.', 'Genetic polymorphisms and organ impairment can change drug clearance and dose needs.', 'Apply this relationship when explaining which patients need dose adjustment.'],
+  'ri-table': ['Read across the patient-type table.', 'The table links enzymatic activity with the appropriate dose adjustment and risk.', 'Use the relevant row to support your response about dose adjustment.'],
+});
+
+const FAQ_TITLES = {
+  [SA_LEVELS.PERCEPTION]: 'Unsure where to look?',
+  [SA_LEVELS.COMPREHENSION]: "Don't understand the task?",
+  [SA_LEVELS.PROJECTION]: "Don't know what to do next?",
+};
+
+function makeAoiArm(saLevel, text) {
+  return {
+    armId: `sa-${saLevel}`,
+    family: saLevel === SA_LEVELS.PERCEPTION ? INTERVENTION_FAMILY.ATTENTIONAL_CUE
+      : saLevel === SA_LEVELS.COMPREHENSION ? INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN
+      : INTERVENTION_FAMILY.PREDICTION,
+    faqTitle: FAQ_TITLES[saLevel],
+    render: { type: 'example-toast', payload: { text, durationMs: 4000 } },
+  };
+}
+
 // --- Fallback bucket: ALWAYS present so lookups never fail. -----------------
 const FALLBACK_ARMS = [
   arm('A', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-spotlight',
@@ -309,13 +396,18 @@ const FALLBACK_ARMS = [
 );
 
 /** Safe lookup — never throws, falls back to fallback bucket for that SA level. */
-export function getArms(taskId, saLevel) {
+export function getArms(taskId, saLevel, aoiId = null) {
+  const aoiContent = AOI_HELP[taskId]?.[aoiId];
+  if (aoiContent) {
+    const index = [SA_LEVELS.PERCEPTION, SA_LEVELS.COMPREHENSION, SA_LEVELS.PROJECTION].indexOf(saLevel);
+    if (index !== -1) return [makeAoiArm(saLevel, aoiContent[index])];
+  }
   const key = `${taskId}::${saLevel}`;
   if (BANK[key]) return BANK[key];
   return BANK[`fallback::${saLevel}`];
 }
 
 /** STATIC_HELP condition: always the fixed default (index 0) for that bucket. */
-export function getStaticArm(taskId, saLevel) {
-  return getArms(taskId, saLevel)[0];
+export function getStaticArm(taskId, saLevel, aoiId = null) {
+  return getArms(taskId, saLevel, aoiId)[0];
 }

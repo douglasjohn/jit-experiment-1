@@ -37,7 +37,9 @@ export function onConfusionFired(payload) {
 
   const event = {
     subjectId: payload.subjectId,
+    taskId: payload.taskId || sessionData.currentTaskId || null,
     aoiType: payload.aoiType || 'unknown',
+    aoiId: payload.aoiId || null,
     saLevel: normalizeSaLevel(payload.saLevel),
     triggeringFeature: payload.triggeringFeature,
     timestamp: Date.now(),

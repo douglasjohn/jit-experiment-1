@@ -124,8 +124,8 @@ function thompsonSample(state) {
  * interventions.js and ARE task-specific; the learned mean/variance used
  * to rank them is keyed by saLevel only (see module docstring).
  */
-export function selectPersonalizedArm(subjectId, taskId, saLevel) {
-  const candidates = getArms(taskId, saLevel);
+export function selectPersonalizedArm(subjectId, taskId, saLevel, aoiId = null) {
+  const candidates = getArms(taskId, saLevel, aoiId);
   let best = null;
   let bestSample = -Infinity;
   for (const c of candidates) {
@@ -170,9 +170,9 @@ export function handleConfusionEvent(event, condition) {
 
   let arm = null;
   if (condition === CONDITIONS.STATIC_HELP) {
-    arm = getStaticArm(event.taskId, event.saLevel);
+    arm = getStaticArm(event.taskId, event.saLevel, event.aoiId);
   } else if (condition === CONDITIONS.USER_INITIATED || condition === CONDITIONS.SYSTEM_INITIATED) {
-    arm = selectPersonalizedArm(event.subjectId, event.taskId, event.saLevel);
+    arm = selectPersonalizedArm(event.subjectId, event.taskId, event.saLevel, event.aoiId);
   }
   // CONDITIONS.NO_HELP -> arm stays null, nothing rendered.
 

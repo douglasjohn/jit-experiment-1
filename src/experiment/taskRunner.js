@@ -35,7 +35,7 @@ import { getArms, SA_LEVELS } from './interventions.js';
  * Generates static help content for a task by pulling all interventions
  * from interventions.js for that task across all SA levels
  */
-function generateStaticHelpContent(taskId) {
+function generateStaticHelpContent(taskId, aoiId = null) {
   const content = {
     title: `${taskId.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} Help`,
     taskId: taskId,
@@ -44,10 +44,11 @@ function generateStaticHelpContent(taskId) {
 
   // Get all interventions for each SA level
   [SA_LEVELS.PERCEPTION, SA_LEVELS.COMPREHENSION, SA_LEVELS.PROJECTION].forEach(saLevel => {
-    const arms = getArms(taskId, saLevel);
+    const arms = getArms(taskId, saLevel, aoiId);
     content.saLevels[saLevel] = arms.map(arm => ({
       armId: arm.armId,
       family: arm.family,
+      faqTitle: arm.faqTitle,
       render: arm.render
     }));
   });
@@ -147,8 +148,8 @@ function generateSvgAoiHamburgerButton(aoiId, x, y) {
 }
 
 // Helper function to generate help popup HTML for static_help condition (legacy, kept for compatibility)
-function generateStaticHelpPopup(taskId) {
-  const content = generateStaticHelpContent(taskId);
+function generateStaticHelpPopup(taskId, aoiId = null) {
+  const content = generateStaticHelpContent(taskId, aoiId);
   if (!content) return '';
 
   let faqItems = '';
@@ -158,7 +159,7 @@ function generateStaticHelpPopup(taskId) {
     const saLabel = saLevel.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
     arms.forEach((arm, armIndex) => {
       const index = `${saLevel}-${armIndex}`;
-      const question = `${saLabel}: ${arm.family.replace('_', ' ').toUpperCase()}`;
+      const question = arm.faqTitle || `${saLabel}: ${arm.family.replace('_', ' ').toUpperCase()}`;
       const answer = arm.render.payload.text || arm.render.payload.body || 'Help content';
       
       faqItems += `
@@ -242,7 +243,7 @@ export const TASK_DEFINITIONS = {
       const isStaticHelp = CONFIG.INTERVENTION_CONDITION === 'static_help';
       const helpPopup = isStaticHelp ? generatePerAoiHamburgerMenus('broken-nav') : '';
       const helpButtonAction = isStaticHelp 
-        ? `onclick="document.getElementById('static-help-popup-broken-nav').style.display='flex';return false;"`
+        ? `onclick="window._openAoiHelp('bn-about-link');return false;"`
         : `onclick="document.getElementById('bn-help-popup').style.display='flex';return false;"`;
       const closePopupAction = isStaticHelp
         ? `onclick="document.getElementById('static-help-popup-broken-nav').style.display='none';return false;"`
@@ -1106,6 +1107,9 @@ export function initTaskRunner(gazeManager) {
     window._openAoiHelp = (aoiId) => {
       const popup = document.getElementById(`static-help-popup-${task.id}`);
       if (!popup) return;
+      const template = document.createElement('template');
+      template.innerHTML = generateStaticHelpPopup(task.id, aoiId);
+      popup.querySelector('.static-help-faq').innerHTML = template.content.querySelector('.static-help-faq').innerHTML;
       popup.style.display = 'flex';
       window._currentAoiId = aoiId;
     };

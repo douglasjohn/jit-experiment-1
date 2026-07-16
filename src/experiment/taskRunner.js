@@ -232,7 +232,7 @@ export const TASK_DEFINITIONS = {
     instructions: (() => {
       const condition = CONFIG.INTERVENTION_CONDITION;
       if (condition === 'static_help') {
-        return 'Explore the mini website below and try to navigate to the returns policy page. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰) in the top right.';
+        return 'Explore the mini website below and try to navigate to the returns policy page. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available in the Help tab.';
       } else if (condition === 'user_initiated') {
         return 'Explore the mini website below and try to navigate to the returns policy page. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
       } else {
@@ -371,7 +371,7 @@ export const TASK_DEFINITIONS = {
     instructions: (() => {
       const condition = CONFIG.INTERVENTION_CONDITION;
       if (condition === 'static_help') {
-        return 'Fill out the registration form completely and submit it. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰) next to each field.';
+        return 'Fill out the registration form completely and submit it. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰).';
       } else if (condition === 'user_initiated') {
         return 'Fill out the registration form completely and submit it. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
       } else {
@@ -464,7 +464,7 @@ export const TASK_DEFINITIONS = {
     instructions: (() => {
       const condition = CONFIG.INTERVENTION_CONDITION;
       if (condition === 'static_help') {
-        return 'Analyse the table and answer the questions below. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰) next to the table.';
+        return 'Analyse the table and answer the questions below. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰).';
       } else if (condition === 'user_initiated') {
         return 'Analyse the table and answer the questions below. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
       } else {
@@ -516,7 +516,7 @@ export const TASK_DEFINITIONS = {
     instructions: (() => {
       const condition = CONFIG.INTERVENTION_CONDITION;
       if (condition === 'static_help') {
-        return 'Solve the multi-step problem. Use the scratchpad to show your working. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰) next to the problem.';
+        return 'Solve the multi-step problem. Use the scratchpad to show your working. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰).';
       } else if (condition === 'user_initiated') {
         return 'Solve the multi-step problem. Use the scratchpad to show your working. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
       } else {
@@ -571,7 +571,7 @@ export const TASK_DEFINITIONS = {
     instructions: (() => {
       const condition = CONFIG.INTERVENTION_CONDITION;
       if (condition === 'static_help') {
-        return 'Study the transit map and answer the question about the optimal route. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰) next to each line.';
+        return 'Study the transit map and answer the question about the optimal route. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰).';
       } else if (condition === 'user_initiated') {
         return 'Study the transit map and answer the question about the optimal route. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
       } else {
@@ -656,7 +656,7 @@ export const TASK_DEFINITIONS = {
     instructions: (() => {
       const condition = CONFIG.INTERVENTION_CONDITION;
       if (condition === 'static_help') {
-        return 'Configure the router to the following specifications: security type=WPA3, DNS=8.8.8.8, then click Save Changes. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰) next to each tab.';
+        return 'Configure the router to the following specifications: security type=WPA3, DNS=8.8.8.8, then click Save Changes. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰).';
       } else if (condition === 'user_initiated') {
         return 'Configure the router to the following specifications: security type=WPA3, DNS=8.8.8.8, then click Save Changes. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
       } else {
@@ -725,7 +725,7 @@ export const TASK_DEFINITIONS = {
     instructions: (() => {
       const condition = CONFIG.INTERVENTION_CONDITION;
       if (condition === 'static_help') {
-        return 'Read the passage carefully, then answer all comprehension and inference questions. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰) next to the passage.';
+        return 'Read the passage carefully, then answer all comprehension and inference questions. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰).';
       } else if (condition === 'user_initiated') {
         return 'Read the passage carefully, then answer all comprehension and inference questions. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
       } else {

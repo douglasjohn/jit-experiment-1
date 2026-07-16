@@ -318,9 +318,9 @@ setAoiHelp('ambiguous-form', {
   'af-field-2': ['Check the Portfolio address field and its validation message.', 'This field intentionally rejects some endings; enter a plausible address that avoids the listed endings.', 'Continue after entering a value, even if the task feels ambiguous.'],
   'af-field-3': ['Check the Correspondence preference field.', 'Enter the contact preference requested by the label.', 'Continue to the next field once a value is entered.'],
   'af-field-4': ['Check the Notification cadence dropdown.', 'Choose one of the available cadence options.', 'Continue after selecting an option.'],
-  'af-field-5': ['Check the Account classification field.', 'Enter a plausible classification value.', 'Continue to the next field once a value is entered.'],
+  'af-field-5': ['Check the Account classification field.', 'Enter a plausible classification value (e.g. VIP, employee, etc...).', 'Continue to the next field once a value is entered.'],
   'af-field-6': ['Check the Temporary password field and its validation message.', 'The validator is deliberately confusing; enter a plausible temporary password.', 'Continue after entering a value, then complete the remaining fields.'],
-  'af-field-7': ['Check the Confirm temporary password field and its validation message.', 'Enter a plausible confirmation value; the validation message is part of the task.', 'Continue after entering a value, then complete the remaining fields.'],
+  'af-field-7': ['Check the Confirm temporary password field and its validation message.', 'Enter the same password from above.', 'Continue after entering a value, then complete the remaining fields.'],
   'af-field-8': ['Check the Pager number field and its validation message.', 'Enter a plausible number that avoids the country codes listed in the message.', 'Continue after entering a value, then submit once every field is complete.'],
 });
 

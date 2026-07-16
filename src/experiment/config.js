@@ -117,15 +117,15 @@ export const CONFIG = {
    *
    * 'no_help'            — confusion classifier fires, nothing is shown
    *                         (current data collection deployment)
-   * 'static_help'         — fixed intervention per (aoiType, saLevel), no learning
-   * 'personalized_help'   — bandit selects among 4 candidate arms per
-   *                          (aoiType, saLevel), with population-prior +
-   *                          per-subject Thompson Sampling updates
+   * 'static_help'        — integrated help bar with task-specific FAQ
+   * 'user_initiated'     — user presses button to request intervention
+   * 'system_initiated'   — system automatically produces interventions based
+   *                         on classifier predictions
    *
    * Can also be overridden per-deployment via URL param for piloting:
-   * ?condition=personalized_help
+   * ?condition=static_help
    */
-  INTERVENTION_CONDITION: params.get('condition') || 'no_help',
+  INTERVENTION_CONDITION: params.get('condition') || 'static_help',
 
   // ── STUDY MODE ────────────────────────────────────────────────────────────
 

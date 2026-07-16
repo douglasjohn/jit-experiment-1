@@ -21,6 +21,201 @@ import { sessionData } from './session';
 import { showScreen } from './router';
 import { showExperienceProbeOverlay } from '../UI/overlays';
 import brokenNavShopImage from '../assets/broken-nav.jpg';
+import { onConfusionFired } from '../intervention/classifier.js';
+import { CONDITIONS } from '../intervention/interventionEngine.js';
+import { createLiveConfusionClassifier } from '../intervention/liveClassifier.js';
+import { getArms, SA_LEVELS } from './interventions.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATIC HELP CONTENT GENERATION
+// Generates exhaustive help content from interventions.js for static_help condition
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Generates static help content for a task by pulling all interventions
+ * from interventions.js for that task across all SA levels
+ */
+function generateStaticHelpContent(taskId) {
+  const content = {
+    title: `${taskId.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} Help`,
+    taskId: taskId,
+    saLevels: {}
+  };
+
+  // Get all interventions for each SA level
+  [SA_LEVELS.PERCEPTION, SA_LEVELS.COMPREHENSION, SA_LEVELS.PROJECTION].forEach(saLevel => {
+    const arms = getArms(taskId, saLevel);
+    content.saLevels[saLevel] = arms.map(arm => ({
+      armId: arm.armId,
+      family: arm.family,
+      render: arm.render
+    }));
+  });
+
+  return content;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATIC HELP HELPER FUNCTIONS
+// Must be defined before TASK_DEFINITIONS since they're used in stimulus_html
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Generates per-AOI help dropdowns for static_help condition
+ * Each dropdown shows all SA levels with all intervention arms
+ */
+function generatePerAoiHelpDropdowns(taskId) {
+  const content = generateStaticHelpContent(taskId);
+  if (!content) return '';
+
+  let dropdownsHtml = '';
+  
+  // For each SA level, create a dropdown
+  Object.entries(content.saLevels).forEach(([saLevel, arms]) => {
+    const saLabel = saLevel.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    dropdownsHtml += `
+      <div class="aoi-help-dropdown" style="margin-bottom:16px;">
+        <button id="help-dropdown-${saLevel}-${taskId}" 
+          style="width:100%;padding:12px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:8px;cursor:pointer;text-align:left;font-weight:600;display:flex;justify-content:space-between;align-items:center;"
+          onclick="document.getElementById('help-content-${saLevel}-${taskId}').style.display=document.getElementById('help-content-${saLevel}-${taskId}').style.display==='block'?'none':'block';">
+          ${saLabel} Help
+          <span style="font-size:18px;">▼</span>
+        </button>
+        <div id="help-content-${saLevel}-${taskId}" style="display:none;background:#fff;border:1px solid #d1d5db;border-radius:8px;margin-top:8px;padding:16px;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+          ${arms.map(arm => `
+            <div style="padding:12px;margin-bottom:8px;background:#f9fafb;border-radius:6px;border-left:4px solid #4f46e5;">
+              <div style="font-weight:600;margin-bottom:4px;color:#1f2937;">${arm.family.replace('_', ' ').toUpperCase()}</div>
+              <div style="color:#4b5563;font-size:14px;">${arm.render.payload.text || arm.render.payload.body || 'Help content'}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  });
+
+  return dropdownsHtml;
+}
+
+/**
+ * Generates per-AOI hamburger menus for static_help condition
+ * Each hamburger menu is positioned near its corresponding AOI element
+ */
+function generatePerAoiHamburgerMenus(taskId) {
+  const content = generateStaticHelpContent(taskId);
+  if (!content) return '';
+
+  let menusHtml = '';
+  
+  // Generate a single popup that will be shared by all hamburger menus
+  const popupId = `static-help-popup-${taskId}`;
+  menusHtml += generateStaticHelpPopup(taskId);
+  
+  return menusHtml;
+}
+
+/**
+ * Generates a single hamburger menu button for a specific AOI
+ * This is called inline in the task HTML where each AOI is defined
+ */
+function generateAoiHamburgerButton(aoiId, taskId) {
+  const isStaticHelp = CONFIG.INTERVENTION_CONDITION === 'static_help';
+  if (!isStaticHelp) return '';
+
+  return `
+    <button 
+      class="aoi-help-btn" 
+      data-aoi-help="${aoiId}"
+      type="button"
+      style="display:block;margin:8px 0 0 auto;padding:6px 10px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:16px;color:#374151;"
+      onclick="event.stopPropagation();window._openAoiHelp('${aoiId}');return false;"
+      title="Click for help"
+    >
+      ☰
+    </button>
+  `;
+}
+
+function generateSvgAoiHamburgerButton(aoiId, x, y) {
+  const isStaticHelp = CONFIG.INTERVENTION_CONDITION === 'static_help';
+  if (!isStaticHelp) return '';
+
+  return `<foreignObject x="${x}" y="${y}" width="30" height="30">
+    <button xmlns="http://www.w3.org/1999/xhtml" class="aoi-help-btn" data-aoi-help="${aoiId}" type="button"
+      style="width:28px;height:28px;padding:0;background:#f3f4f6;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:16px;color:#374151;"
+      onclick="event.stopPropagation();window._openAoiHelp('${aoiId}');return false;" title="Click for help">☰</button>
+  </foreignObject>`;
+}
+
+// Helper function to generate help popup HTML for static_help condition (legacy, kept for compatibility)
+function generateStaticHelpPopup(taskId) {
+  const content = generateStaticHelpContent(taskId);
+  if (!content) return '';
+
+  let faqItems = '';
+  
+  // Generate FAQ items for each SA level and arm
+  Object.entries(content.saLevels).forEach(([saLevel, arms]) => {
+    const saLabel = saLevel.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    arms.forEach((arm, armIndex) => {
+      const index = `${saLevel}-${armIndex}`;
+      const question = `${saLabel}: ${arm.family.replace('_', ' ').toUpperCase()}`;
+      const answer = arm.render.payload.text || arm.render.payload.body || 'Help content';
+      
+      faqItems += `
+        <div class="static-help-item" data-index="${index}" style="margin-bottom:12px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;background:#fff;">
+          <button class="static-help-question" style="width:100%;padding:12px 16px;text-align:left;background:#f9fafb;border:none;cursor:pointer;font-size:14px;font-weight:600;color:#374151;display:flex;justify-content:space-between;align-items:center;"
+            onclick="const answer=this.nextElementSibling;const isOpen=answer.style.display==='block';answer.style.display=isOpen?'none':'block';this.querySelector('.help-icon').textContent=isOpen?'▶':'▼';window._logStaticHelpItem?.('${index}', '${question.replace(/'/g, "\\'")}');">
+            <span>${question}</span>
+            <span class="help-icon" style="font-size:12px;color:#6b7280;">▶</span>
+          </button>
+          <div class="static-help-answer" style="display:none;padding:12px 16px;background:#fff;border-top:1px solid #e5e7eb;font-size:14px;line-height:1.6;color:#4b5563;">
+            ${answer}
+          </div>
+        </div>
+      `;
+    });
+  });
+
+  return `
+    <div id="static-help-popup-${taskId}" class="bn-popup" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;" onclick="window._closeAoiHelp?.();">
+      <div class="bn-popup-content" style="max-width:500px;max-height:80vh;overflow-y:auto;background:#fff;border-radius:12px;padding:24px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1),0 10px 10px -5px rgba(0,0,0,0.04);" onclick="event.stopPropagation();">
+        <h3 style="margin:0 0 16px;font-size:20px;color:#111827;display:flex;align-items:center;gap:8px;">
+          <span>${content.title}</span>
+        </h3>
+        <div class="static-help-faq">
+          ${faqItems}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Helper function to generate hamburger menu with help for static_help condition
+function generateHamburgerMenu(taskId) {
+  const isStaticHelp = CONFIG.INTERVENTION_CONDITION === 'static_help';
+  const isUserInitiated = CONFIG.INTERVENTION_CONDITION === 'user_initiated';
+  const isSystemInitiated = CONFIG.INTERVENTION_CONDITION === 'system_initiated';
+  if (!isStaticHelp) return '';
+
+  return `
+    <div id="hamburger-container-${taskId}">
+      <button id="hamburger-btn-${taskId}" style="padding:8px 12px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:8px;cursor:pointer;font-size:18px;color:#374151;" onclick="document.getElementById('hamburger-btn-${taskId}').style.display='none';document.getElementById('close-btn-${taskId}').style.display='block';document.getElementById('static-help-popup-${taskId}').style.display='flex';return false;">☰</button>
+      <button id="close-btn-${taskId}" style="display:none;padding:8px 12px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:8px;cursor:pointer;font-size:18px;color:#374151;" onclick="document.getElementById('hamburger-btn-${taskId}').style.display='block';document.getElementById('close-btn-${taskId}').style.display='none';document.getElementById('static-help-popup-${taskId}').style.display='none';return false;">✕</button>
+    </div>
+    ${generateStaticHelpPopup(taskId)}
+  `;
+}
+
+// Helper function to generate floating "I'm confused" button for user_initiated condition
+function generateConfusedButton(taskId) {
+  const isUserInitiated = CONFIG.INTERVENTION_CONDITION === 'user_initiated';
+  // Don't show button for attention check task
+  if (!isUserInitiated || taskId === 'error-diagnosis') return '';
+
+  return `
+    <button id="confused-btn" style="position:fixed;bottom:24px;right:24px;padding:12px 20px;background:#ef4444;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;box-shadow:0 4px 12px rgba(239,68,68,0.3);z-index:1000;transition:transform 0.2s,background 0.2s;" onmouseover="this.style.background='#dc2626';this.style.transform='translateY(-2px)';" onmouseout="this.style.background='#ef4444';this.style.transform='translateY(0)';" onclick="window._handleConfusedClick();return false;">I'm confused</button>
+  `;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TASK DEFINITIONS
@@ -33,8 +228,27 @@ export const TASK_DEFINITIONS = {
     id:    'broken-nav',
     type:  'navigation',
     title: 'Broken Navigation',
-    instructions: 'Explore the mini website below and try to navigate to the returns policy page. You may enter fake information where needed — it will not affect the outcome of the experiment.',
-    stimulus_html: `
+    instructions: (() => {
+      const condition = CONFIG.INTERVENTION_CONDITION;
+      if (condition === 'static_help') {
+        return 'Explore the mini website below and try to navigate to the returns policy page. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰) in the top right.';
+      } else if (condition === 'user_initiated') {
+        return 'Explore the mini website below and try to navigate to the returns policy page. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
+      } else {
+        return 'Explore the mini website below and try to navigate to the returns policy page. You may enter fake information where needed — it will not affect the outcome of the experiment.';
+      }
+    })(),
+    stimulus_html: (() => {
+      const isStaticHelp = CONFIG.INTERVENTION_CONDITION === 'static_help';
+      const helpPopup = isStaticHelp ? generatePerAoiHamburgerMenus('broken-nav') : '';
+      const helpButtonAction = isStaticHelp 
+        ? `onclick="document.getElementById('static-help-popup-broken-nav').style.display='flex';return false;"`
+        : `onclick="document.getElementById('bn-help-popup').style.display='flex';return false;"`;
+      const closePopupAction = isStaticHelp
+        ? `onclick="document.getElementById('static-help-popup-broken-nav').style.display='none';return false;"`
+        : `onclick="document.getElementById('bn-help-popup').style.display='none';return false;"`;
+      
+      return `
       <div style="font-family:system-ui,sans-serif;color:#111827;display:flex;flex-direction:column;gap:24px;">
         <style>
           .shop-shell{border:1px solid #e2e8f0;border-radius:24px;overflow:hidden;box-shadow:0 24px 60px rgba(15,23,42,.12);background:#fff}
@@ -73,7 +287,7 @@ export const TASK_DEFINITIONS = {
             <nav class="shop-nav" data-aoi="nav-menu">
               <a class="shop-link" href="#" onclick="return false;">Home</a>
               <a class="shop-link" href="#" onclick="return false;">Shop</a>
-              <button class="shop-link" id="bn-help-btn" onclick="document.getElementById('bn-help-popup').style.display='flex';return false;">Help</button>
+              <button class="shop-link" id="bn-help-btn" ${helpButtonAction}>Help</button>
             </nav>
           </div>
 
@@ -131,12 +345,14 @@ export const TASK_DEFINITIONS = {
       </div>
 
       <!-- Popups (position:fixed — float above everything) -->
-      <div id="bn-help-popup" class="bn-popup" style="display:none;"><div class="bn-popup-content"><h3>Help</h3><p>Help is currently unavailable.</p><button type="button" class="continue-button" onclick="document.getElementById('bn-help-popup').style.display='none';return false;">Close</button></div></div>
+      ${!isStaticHelp ? '<div id="bn-help-popup" class="bn-popup" style="display:none;"><div class="bn-popup-content"><h3>Help</h3><p>Help is currently unavailable.</p><button type="button" class="continue-button" onclick="document.getElementById(\'bn-help-popup\').style.display=\'none\';return false;">Close</button></div></div>' : ''}
       <div id="bn-aboutus-popup" class="bn-popup" style="display:none;"><div class="bn-popup-content"><h3>About us</h3><p>Glimmer Goods launched to explore how people use navigation labels and hidden menus in shopping experiences.</p><button type="button" class="continue-button" onclick="document.getElementById('bn-aboutus-popup').style.display='none';return false;">Close</button></div></div>
       <div id="bn-contact-popup" class="bn-popup" style="display:none;"><div class="bn-popup-content"><h3>Contact</h3><p>Email support@glimmergoods.example or call +1 (555) 123-4567.</p><button type="button" class="continue-button" onclick="document.getElementById('bn-contact-popup').style.display='none';return false;">Close</button></div></div>
       <div id="bn-loyalty-popup" class="bn-popup" style="display:none;"><div class="bn-popup-content"><h3>Loyalty program</h3><p>Join our loyalty program for early access to sales, bonus points, and exclusive offers.</p><button type="button" class="continue-button" onclick="document.getElementById('bn-loyalty-popup').style.display='none';return false;">Close</button></div></div>
       <div id="bn-returns-popup" class="bn-popup" style="display:none;"><div class="bn-popup-content"><h3>Returns policy</h3><p>The returns policy is currently inaccessible. Please contact us for more information.</p><button type="button" class="continue-button" onclick="document.getElementById('bn-returns-popup').style.display='none';return false;">Close</button></div></div>
-    `,
+      ${helpPopup}
+    `;
+    })(),
     aois: [
       { id: 'nav-menu' }, { id: 'shop-home' },
       { id: 'bn-help-btn' }, { id: 'bn-about-link' }, { id: 'bn-selection-panel' },
@@ -151,8 +367,20 @@ export const TASK_DEFINITIONS = {
     id:    'ambiguous-form',
     type:  'form',
     title: 'Ambiguous Form',
-    instructions: 'Fill out the registration form completely and submit it. You may enter fake information where needed — it will not affect the outcome of the experiment.',
+    instructions: (() => {
+      const condition = CONFIG.INTERVENTION_CONDITION;
+      if (condition === 'static_help') {
+        return 'Fill out the registration form completely and submit it. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰) next to each field.';
+      } else if (condition === 'user_initiated') {
+        return 'Fill out the registration form completely and submit it. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
+      } else {
+        return 'Fill out the registration form completely and submit it. You may enter fake information where needed — it will not affect the outcome of the experiment.';
+      }
+    })(),
     stimulus_html: (() => {
+      const isStaticHelp = CONFIG.INTERVENTION_CONDITION === 'static_help';
+      const helpPopup = isStaticHelp ? generatePerAoiHamburgerMenus('ambiguous-form') : '';
+      
       // Fields: hasError drives whether an error span appears on input.
       // Per spec: Full name, Correspondence preference, Notification cadence,
       // and Account classification have NO errors. The other four do.
@@ -197,23 +425,31 @@ export const TASK_DEFINITIONS = {
             ${onInput} />`;
         }
 
+        const hamburgerButton = isStaticHelp ? generateAoiHamburgerButton(id, 'ambiguous-form') : '';
+
         return `
-          <div data-aoi="${id}" style="display:grid;gap:6px;">
+          <div data-aoi="${id}" style="display:grid;gap:6px;position:relative;">
             <label for="${id}" style="font-weight:600;color:#111827;">${f.label}</label>
             ${input}
             ${errorSpan}
+            ${hamburgerButton}
           </div>`;
       }).join('');
 
       return `
         <div style="font-family:system-ui,sans-serif;color:#111827;border:1px solid #d1d5db;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.12);">
-          <div style="padding:28px;background:#fff;">
-            <h2 style="margin:0 0 8px;font-size:28px;">Create your account</h2>
-            <p style="margin:0 0 16px;color:#475569;font-weight:500;font-style:italic;">Fill out the form to the best of your ability and submit when you feel comfortable.</p>
-            <p style="margin:0 0 24px;color:#475569;line-height:1.7;">Complete all fields below.</p>
+          <div style="padding:28px;background:#fff;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+            <div style="flex:1;">
+              <h2 style="margin:0 0 8px;font-size:28px;">Create your account</h2>
+              <p style="margin:0 0 16px;color:#475569;font-weight:500;font-style:italic;">Fill out the form to the best of your ability and submit when you feel comfortable.</p>
+              <p style="margin:0 0 24px;color:#475569;line-height:1.7;">Complete all fields below.</p>
+            </div>
+          </div>
+          <div style="padding:0 28px 28px;background:#fff;">
             <div id="af-form" style="display:grid;gap:18px;">${rows}</div>
           </div>
-        </div>`;
+        </div>
+        ${helpPopup}`;
     })(),
     aois: Array.from({ length: 8 }, (_, i) => ({ id: `af-field-${i + 1}` })),
     questions: [],  // responses collected directly from the form inputs by _getResponses
@@ -224,9 +460,22 @@ export const TASK_DEFINITIONS = {
     id:    'data-table',
     type:  'table',
     title: 'Data Table Analysis',
-    instructions: 'Analyse the table and answer the questions below. You may enter fake information where needed — it will not affect the outcome of the experiment.',
-    stimulus_html: `
-      <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#f0fdf4;font-family:system-ui,sans-serif;">
+    instructions: (() => {
+      const condition = CONFIG.INTERVENTION_CONDITION;
+      if (condition === 'static_help') {
+        return 'Analyse the table and answer the questions below. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰) next to the table.';
+      } else if (condition === 'user_initiated') {
+        return 'Analyse the table and answer the questions below. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
+      } else {
+        return 'Analyse the table and answer the questions below. You may enter fake information where needed — it will not affect the outcome of the experiment.';
+      }
+    })(),
+    stimulus_html: (() => {
+      const isStaticHelp = CONFIG.INTERVENTION_CONDITION === 'static_help';
+      const helpPopup = isStaticHelp ? generatePerAoiHamburgerMenus('data-table') : '';
+      
+      return `
+      <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#f0fdf4;font-family:system-ui,sans-serif;position:relative;">
         <table data-aoi="dt-header" style="width:100%;border-collapse:collapse;font-size:14px;text-align:left;">
           <thead>
             <tr style="background:#dcfce7;border-bottom:2px solid #86efac;">
@@ -234,16 +483,19 @@ export const TASK_DEFINITIONS = {
               <th style="padding:12px;border:1px solid #d1d5db;text-align:right;">Mode Share (%)</th>
               <th style="padding:12px;border:1px solid #d1d5db;text-align:right;">Emissions (g CO₂/km)</th>
               <th style="padding:12px;border:1px solid #d1d5db;text-align:right;">Weighted Emissions (%)</th>
+              <th style="padding:4px;border:1px solid #d1d5db;">${isStaticHelp ? generateAoiHamburgerButton('dt-header', 'data-table') : ''}</th>
             </tr>
           </thead>
           <tbody>
-            <tr data-aoi="dt-row-1" style="border-bottom:1px solid #d1d5db;"><td style="padding:12px;border:1px solid #d1d5db;">Private Car</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">58%</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">192</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">71.2%</td></tr>
-            <tr data-aoi="dt-row-2" style="border-bottom:1px solid #d1d5db;"><td style="padding:12px;border:1px solid #d1d5db;">Bus</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">22%</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">54</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">15.4%</td></tr>
-            <tr data-aoi="dt-row-3" style="border-bottom:1px solid #d1d5db;"><td style="padding:12px;border:1px solid #d1d5db;">Cycling</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">12%</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">0</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">0%</td></tr>
-            <tr data-aoi="dt-row-4" style="background:#fafafa;"><td style="padding:12px;border:1px solid #d1d5db;"><strong>Urban Total</strong></td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;"><strong>92%</strong></td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;"><strong>—</strong></td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;"><strong>86.6%</strong></td></tr>
+            <tr data-aoi="dt-row-1" style="border-bottom:1px solid #d1d5db;"><td style="padding:12px;border:1px solid #d1d5db;">Private Car</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">58%</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">192</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">71.2%</td><td style="padding:4px;border:1px solid #d1d5db;">${isStaticHelp ? generateAoiHamburgerButton('dt-row-1', 'data-table') : ''}</td></tr>
+            <tr data-aoi="dt-row-2" style="border-bottom:1px solid #d1d5db;"><td style="padding:12px;border:1px solid #d1d5db;">Bus</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">22%</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">54</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">15.4%</td><td style="padding:4px;border:1px solid #d1d5db;">${isStaticHelp ? generateAoiHamburgerButton('dt-row-2', 'data-table') : ''}</td></tr>
+            <tr data-aoi="dt-row-3" style="border-bottom:1px solid #d1d5db;"><td style="padding:12px;border:1px solid #d1d5db;">Cycling</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">12%</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">0</td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;">0%</td><td style="padding:4px;border:1px solid #d1d5db;">${isStaticHelp ? generateAoiHamburgerButton('dt-row-3', 'data-table') : ''}</td></tr>
+            <tr data-aoi="dt-row-4" style="background:#fafafa;"><td style="padding:12px;border:1px solid #d1d5db;"><strong>Urban Total</strong></td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;"><strong>92%</strong></td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;"><strong>—</strong></td><td style="padding:12px;border:1px solid #d1d5db;text-align:right;"><strong>86.6%</strong></td><td style="padding:4px;border:1px solid #d1d5db;">${isStaticHelp ? generateAoiHamburgerButton('dt-row-4', 'data-table') : ''}</td></tr>
           </tbody>
         </table>
-      </div>`,
+        ${helpPopup}
+      </div>`;
+    })(),
     aois: [
       { id: 'dt-header' }, { id: 'dt-row-1' }, { id: 'dt-row-2' },
       { id: 'dt-row-3' }, { id: 'dt-row-4' },
@@ -260,30 +512,48 @@ export const TASK_DEFINITIONS = {
     id:    'math-problem',
     type:  'calculation',
     title: 'Medication Dosage Calculation',
-    instructions: 'Solve the multi-step problem. Use the scratchpad to show your working. You may enter fake information where needed — it will not affect the outcome of the experiment.',
-    stimulus_html: `
-      <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#fff7ed;font-family:system-ui,sans-serif;">
-        <div data-aoi="mp-problem" style="margin-bottom:20px;">
+    instructions: (() => {
+      const condition = CONFIG.INTERVENTION_CONDITION;
+      if (condition === 'static_help') {
+        return 'Solve the multi-step problem. Use the scratchpad to show your working. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰) next to the problem.';
+      } else if (condition === 'user_initiated') {
+        return 'Solve the multi-step problem. Use the scratchpad to show your working. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
+      } else {
+        return 'Solve the multi-step problem. Use the scratchpad to show your working. You may enter fake information where needed — it will not affect the outcome of the experiment.';
+      }
+    })(),
+    stimulus_html: (() => {
+      const isStaticHelp = CONFIG.INTERVENTION_CONDITION === 'static_help';
+      const helpPopup = isStaticHelp ? generatePerAoiHamburgerMenus('math-problem') : '';
+      
+      return `
+      <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#fff7ed;font-family:system-ui,sans-serif;position:relative;">
+        <div data-aoi="mp-problem" style="margin-bottom:20px;position:relative;">
           <h3 style="margin:0 0 12px;font-size:18px;color:#92400e;">Problem</h3>
           <p style="margin:0;line-height:1.7;color:#78350f;">
             A patient weighs 72 kg and needs an antibiotic injection. The prescribed dosage is
             15 mg per kilogram of body weight. Available tablets come in 250 mg, 500 mg, and
             1000 mg sizes. The maximum daily dose is 4800 mg.
           </p>
+          ${isStaticHelp ? generateAoiHamburgerButton('mp-problem', 'math-problem') : ''}
         </div>
-        <div data-aoi="mp-table" style="margin-bottom:20px;padding:16px;background:#fef3c7;border-radius:8px;border:1px solid #fbbf24;">
+        <div data-aoi="mp-table" style="margin-bottom:20px;padding:16px;background:#fef3c7;border-radius:8px;border:1px solid #fbbf24;position:relative;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <tr style="border-bottom:1px solid #fbbf24;"><th style="padding:8px;text-align:left;color:#92400e;">Tablet Size</th><th style="padding:8px;text-align:center;color:#92400e;">Available</th></tr>
             <tr style="border-bottom:1px solid #fbbf24;"><td style="padding:8px;">250 mg</td><td style="padding:8px;text-align:center;">✓</td></tr>
             <tr style="border-bottom:1px solid #fbbf24;"><td style="padding:8px;">500 mg</td><td style="padding:8px;text-align:center;">✓</td></tr>
             <tr><td style="padding:8px;">1000 mg</td><td style="padding:8px;text-align:center;">✓</td></tr>
           </table>
+          ${isStaticHelp ? generateAoiHamburgerButton('mp-table', 'math-problem') : ''}
         </div>
-        <div data-aoi="mp-scratchpad">
+        <div data-aoi="mp-scratchpad" style="position:relative;">
           <label for="mp-scratch" style="display:block;font-weight:600;margin-bottom:8px;color:#92400e;">Scratchpad (show your calculations):</label>
           <textarea id="mp-scratch" style="width:100%;height:100px;padding:12px;border:1px solid #fbbf24;border-radius:8px;font-family:monospace;font-size:13px;resize:vertical;box-sizing:border-box;"></textarea>
+          ${isStaticHelp ? generateAoiHamburgerButton('mp-scratchpad', 'math-problem') : ''}
         </div>
-      </div>`,
+        ${helpPopup}
+      </div>`;
+    })(),
     aois: [{ id: 'mp-problem' }, { id: 'mp-table' }, { id: 'mp-scratchpad' }],
     questions: [
       { id: 'mp-q1', prompt: 'How many mg should be administered per dose?', type: 'text' },
@@ -297,8 +567,21 @@ export const TASK_DEFINITIONS = {
     id:    'visual-search',
     type:  'search',
     title: 'Transit Network Analysis',
-    instructions: 'Study the transit map and answer the question about the optimal route. You may enter fake information where needed — it will not affect the outcome of the experiment.',
-    stimulus_html: `
+    instructions: (() => {
+      const condition = CONFIG.INTERVENTION_CONDITION;
+      if (condition === 'static_help') {
+        return 'Study the transit map and answer the question about the optimal route. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰) next to each line.';
+      } else if (condition === 'user_initiated') {
+        return 'Study the transit map and answer the question about the optimal route. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
+      } else {
+        return 'Study the transit map and answer the question about the optimal route. You may enter fake information where needed — it will not affect the outcome of the experiment.';
+      }
+    })(),
+    stimulus_html: (() => {
+      const isStaticHelp = CONFIG.INTERVENTION_CONDITION === 'static_help';
+      const helpPopup = isStaticHelp ? generatePerAoiHamburgerMenus('visual-search') : '';
+      
+      return `
       <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#eff6ff;font-family:system-ui,sans-serif;position:relative;">
         <div data-aoi="vs-legend" style="position:absolute;top:36px;right:36px;padding:12px;background:#fff;border:1px solid #d1d5db;border-radius:8px;font-size:12px;z-index:1;">
           <div style="margin-bottom:8px;font-weight:600;">Legend</div>
@@ -310,16 +593,19 @@ export const TASK_DEFINITIONS = {
             <div style="display:flex;align-items:center;gap:6px;"><div style="width:16px;height:3px;background:#8b5cf6;"></div><span>Line 5 (Purple)</span></div>
             <div style="display:flex;align-items:center;gap:6px;"><div style="width:16px;height:3px;background:#ec4899;"></div><span>Line 6 (Pink)</span></div>
           </div>
+          ${isStaticHelp ? generateAoiHamburgerButton('vs-legend', 'visual-search') : ''}
         </div>
         <svg width="100%" height="400" viewBox="0 0 800 400" style="border:1px solid #d1d5db;border-radius:8px;background:#f9fafb;margin-bottom:20px;">
-          <g data-aoi="vs-line-1"><polyline points="50,100 150,100 250,150 350,150 450,100" stroke="#ef4444" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="50" cy="100" r="5" fill="#ef4444"/><circle cx="150" cy="100" r="5" fill="#ef4444"/><circle cx="250" cy="150" r="5" fill="#ef4444"/><circle cx="350" cy="150" r="5" fill="#ef4444"/><circle cx="450" cy="100" r="5" fill="#ef4444"/><text x="55" y="95" font-size="11" fill="#1f2937">St.A</text><text x="155" y="95" font-size="11" fill="#1f2937">St.B</text><text x="255" y="145" font-size="11" fill="#1f2937">St.C</text><text x="355" y="145" font-size="11" fill="#1f2937">St.D</text><text x="455" y="95" font-size="11" fill="#1f2937">St.E</text></g>
-          <g data-aoi="vs-line-2"><polyline points="100,300 200,250 300,250 400,300 500,250" stroke="#3b82f6" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="100" cy="300" r="5" fill="#3b82f6"/><circle cx="200" cy="250" r="5" fill="#3b82f6"/><circle cx="300" cy="250" r="5" fill="#3b82f6"/><circle cx="400" cy="300" r="5" fill="#3b82f6"/><circle cx="500" cy="250" r="5" fill="#3b82f6"/><text x="105" y="315" font-size="11" fill="#1f2937">St.F</text><text x="205" y="240" font-size="11" fill="#1f2937">St.G</text><text x="305" y="240" font-size="11" fill="#1f2937">St.H</text><text x="405" y="315" font-size="11" fill="#1f2937">St.I</text><text x="505" y="240" font-size="11" fill="#1f2937">St.J</text></g>
-          <g data-aoi="vs-line-3"><polyline points="150,200 250,180 350,200 450,200 550,180" stroke="#10b981" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="150" cy="200" r="5" fill="#10b981"/><circle cx="250" cy="180" r="5" fill="#10b981"/><circle cx="350" cy="200" r="5" fill="#10b981"/><circle cx="450" cy="200" r="5" fill="#10b981"/><circle cx="550" cy="180" r="5" fill="#10b981"/><text x="155" y="215" font-size="11" fill="#1f2937">St.K</text><text x="255" y="170" font-size="11" fill="#1f2937">St.L</text><text x="355" y="215" font-size="11" fill="#1f2937">St.M</text><text x="455" y="215" font-size="11" fill="#1f2937">St.N</text><text x="555" y="170" font-size="11" fill="#1f2937">St.O</text></g>
-          <g data-aoi="vs-line-4"><polyline points="500,100 550,150 600,150 650,100" stroke="#f59e0b" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="500" cy="100" r="5" fill="#f59e0b"/><circle cx="550" cy="150" r="5" fill="#f59e0b"/><circle cx="600" cy="150" r="5" fill="#f59e0b"/><circle cx="650" cy="100" r="5" fill="#f59e0b"/><text x="505" y="95" font-size="11" fill="#1f2937">St.P</text><text x="555" y="145" font-size="11" fill="#1f2937">St.Q</text><text x="605" y="145" font-size="11" fill="#1f2937">St.R</text><text x="655" y="95" font-size="11" fill="#1f2937">St.S</text></g>
-          <g data-aoi="vs-line-5"><polyline points="600,300 650,280 700,300" stroke="#8b5cf6" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="600" cy="300" r="5" fill="#8b5cf6"/><circle cx="650" cy="280" r="5" fill="#8b5cf6"/><circle cx="700" cy="300" r="5" fill="#8b5cf6"/><text x="605" y="315" font-size="11" fill="#1f2937">St.T</text><text x="655" y="270" font-size="11" fill="#1f2937">St.U</text><text x="705" y="315" font-size="11" fill="#1f2937">St.V</text></g>
-          <g data-aoi="vs-line-6"><polyline points="350,300 450,330 550,300" stroke="#ec4899" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="350" cy="300" r="5" fill="#ec4899"/><circle cx="450" cy="330" r="5" fill="#ec4899"/><circle cx="550" cy="300" r="5" fill="#ec4899"/><text x="355" y="315" font-size="11" fill="#1f2937">St.W</text><text x="455" y="345" font-size="11" fill="#1f2937">St.X</text><text x="555" y="315" font-size="11" fill="#1f2937">St.Y</text></g>
+          <g data-aoi="vs-line-1" style="position:relative;"><polyline points="50,100 150,100 250,150 350,150 450,100" stroke="#ef4444" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="50" cy="100" r="5" fill="#ef4444"/><circle cx="150" cy="100" r="5" fill="#ef4444"/><circle cx="250" cy="150" r="5" fill="#ef4444"/><circle cx="350" cy="150" r="5" fill="#ef4444"/><circle cx="450" cy="100" r="5" fill="#ef4444"/><text x="55" y="95" font-size="11" fill="#1f2937">St.A</text><text x="155" y="95" font-size="11" fill="#1f2937">St.B</text><text x="255" y="145" font-size="11" fill="#1f2937">St.C</text><text x="355" y="145" font-size="11" fill="#1f2937">St.D</text><text x="455" y="95" font-size="11" fill="#1f2937">St.E</text>${isStaticHelp ? generateAoiHamburgerButton('vs-line-1', 'visual-search') : ''}</g>
+          <g data-aoi="vs-line-2" style="position:relative;"><polyline points="100,300 200,250 300,250 400,300 500,250" stroke="#3b82f6" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="100" cy="300" r="5" fill="#3b82f6"/><circle cx="200" cy="250" r="5" fill="#3b82f6"/><circle cx="300" cy="250" r="5" fill="#3b82f6"/><circle cx="400" cy="300" r="5" fill="#3b82f6"/><circle cx="500" cy="250" r="5" fill="#3b82f6"/><text x="105" y="315" font-size="11" fill="#1f2937">St.F</text><text x="205" y="240" font-size="11" fill="#1f2937">St.G</text><text x="305" y="240" font-size="11" fill="#1f2937">St.H</text><text x="405" y="315" font-size="11" fill="#1f2937">St.I</text><text x="505" y="240" font-size="11" fill="#1f2937">St.J</text>${isStaticHelp ? generateAoiHamburgerButton('vs-line-2', 'visual-search') : ''}</g>
+          <g data-aoi="vs-line-3" style="position:relative;"><polyline points="150,200 250,180 350,200 450,200 550,180" stroke="#10b981" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="150" cy="200" r="5" fill="#10b981"/><circle cx="250" cy="180" r="5" fill="#10b981"/><circle cx="350" cy="200" r="5" fill="#10b981"/><circle cx="450" cy="200" r="5" fill="#10b981"/><circle cx="550" cy="180" r="5" fill="#10b981"/><text x="155" y="215" font-size="11" fill="#1f2937">St.K</text><text x="255" y="170" font-size="11" fill="#1f2937">St.L</text><text x="355" y="215" font-size="11" fill="#1f2937">St.M</text><text x="455" y="215" font-size="11" fill="#1f2937">St.N</text><text x="555" y="170" font-size="11" fill="#1f2937">St.O</text>${isStaticHelp ? generateAoiHamburgerButton('vs-line-3', 'visual-search') : ''}</g>
+          <g data-aoi="vs-line-4" style="position:relative;"><polyline points="500,100 550,150 600,150 650,100" stroke="#f59e0b" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="500" cy="100" r="5" fill="#f59e0b"/><circle cx="550" cy="150" r="5" fill="#f59e0b"/><circle cx="600" cy="150" r="5" fill="#f59e0b"/><circle cx="650" cy="100" r="5" fill="#f59e0b"/><text x="505" y="95" font-size="11" fill="#1f2937">St.P</text><text x="555" y="145" font-size="11" fill="#1f2937">St.Q</text><text x="605" y="145" font-size="11" fill="#1f2937">St.R</text><text x="655" y="95" font-size="11" fill="#1f2937">St.S</text>${isStaticHelp ? generateAoiHamburgerButton('vs-line-4', 'visual-search') : ''}</g>
+          <g data-aoi="vs-line-5" style="position:relative;"><polyline points="600,300 650,280 700,300" stroke="#8b5cf6" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="600" cy="300" r="5" fill="#8b5cf6"/><circle cx="650" cy="280" r="5" fill="#8b5cf6"/><circle cx="700" cy="300" r="5" fill="#8b5cf6"/><text x="605" y="315" font-size="11" fill="#1f2937">St.T</text><text x="655" y="270" font-size="11" fill="#1f2937">St.U</text><text x="705" y="315" font-size="11" fill="#1f2937">St.V</text>${isStaticHelp ? generateAoiHamburgerButton('vs-line-5', 'visual-search') : ''}</g>
+          <g data-aoi="vs-line-6" style="position:relative;"><polyline points="350,300 450,330 550,300" stroke="#ec4899" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="350" cy="300" r="5" fill="#ec4899"/><circle cx="450" cy="330" r="5" fill="#ec4899"/><circle cx="550" cy="300" r="5" fill="#ec4899"/><text x="355" y="315" font-size="11" fill="#1f2937">St.W</text><text x="455" y="345" font-size="11" fill="#1f2937">St.X</text><text x="555" y="315" font-size="11" fill="#1f2937">St.Y</text>${isStaticHelp ? generateAoiHamburgerButton('vs-line-6', 'visual-search') : ''}</g>
         </svg>
-      </div>`,
+        ${helpPopup}
+      </div>`;
+    })(),
     aois: [
       { id: 'vs-legend' }, { id: 'vs-line-1' }, { id: 'vs-line-2' },
       { id: 'vs-line-3' }, { id: 'vs-line-4' }, { id: 'vs-line-5' }, { id: 'vs-line-6' },
@@ -366,25 +652,38 @@ export const TASK_DEFINITIONS = {
     id:    'instruction-following',
     type:  'following',
     title: 'Router Configuration',
-    instructions: 'Configure the router to the following specifications: security type=WPA3, DNS=8.8.8.8, then click Save Changes. You may enter fake information where needed — it will not affect the outcome of the experiment.',
-    stimulus_html: `
-      <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#eef2ff;font-family:system-ui,sans-serif;">
+    instructions: (() => {
+      const condition = CONFIG.INTERVENTION_CONDITION;
+      if (condition === 'static_help') {
+        return 'Configure the router to the following specifications: security type=WPA3, DNS=8.8.8.8, then click Save Changes. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰) next to each tab.';
+      } else if (condition === 'user_initiated') {
+        return 'Configure the router to the following specifications: security type=WPA3, DNS=8.8.8.8, then click Save Changes. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
+      } else {
+        return 'Configure the router to the following specifications: security type=WPA3, DNS=8.8.8.8, then click Save Changes. You may enter fake information where needed — it will not affect the outcome of the experiment.';
+      }
+    })(),
+    stimulus_html: (() => {
+      const isStaticHelp = CONFIG.INTERVENTION_CONDITION === 'static_help';
+      const helpPopup = isStaticHelp ? generatePerAoiHamburgerMenus('instruction-following') : '';
+      
+      return `
+      <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#eef2ff;font-family:system-ui,sans-serif;position:relative;">
         <div style="max-width:700px;margin:0 auto;">
           <div style="background:#fff;border:1px solid #d1d5db;border-radius:8px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,.1);">
             <div style="display:flex;border-bottom:2px solid #d1d5db;background:#f9fafb;" id="if-tabs">
-              <button type="button" data-tab="0" style="flex:1;padding:16px;background:#fff;border:none;border-bottom:3px solid #4f46e5;cursor:pointer;font-weight:600;color:#1f2937;" data-aoi="if-tab-network">Network</button>
-              <button type="button" data-tab="1" style="flex:1;padding:16px;background:#f9fafb;border:none;cursor:pointer;font-size:20px;color:#6b7280;" data-aoi="if-tab-security">🔒</button>
-              <button type="button" data-tab="2" style="flex:1;padding:16px;background:#f9fafb;border:none;cursor:pointer;font-weight:600;color:#6b7280;" data-aoi="if-tab-advanced">Advanced</button>
+              <button type="button" data-tab="0" style="flex:1;padding:16px;background:#fff;border:none;border-bottom:3px solid #4f46e5;cursor:pointer;font-weight:600;color:#1f2937;position:relative;" data-aoi="if-tab-network">Network${isStaticHelp ? generateAoiHamburgerButton('if-tab-network', 'instruction-following') : ''}</button>
+              <button type="button" data-tab="1" style="flex:1;padding:16px;background:#f9fafb;border:none;cursor:pointer;font-size:20px;color:#6b7280;position:relative;" data-aoi="if-tab-security">🔒${isStaticHelp ? generateAoiHamburgerButton('if-tab-security', 'instruction-following') : ''}</button>
+              <button type="button" data-tab="2" style="flex:1;padding:16px;background:#f9fafb;border:none;cursor:pointer;font-weight:600;color:#6b7280;position:relative;" data-aoi="if-tab-advanced">Advanced${isStaticHelp ? generateAoiHamburgerButton('if-tab-advanced', 'instruction-following') : ''}</button>
             </div>
             <div id="if-panel-0" style="padding:24px;display:block;">
               <div style="display:grid;gap:16px;">
                 <div><label style="display:block;font-weight:600;margin-bottom:6px;">WiFi SSID</label><input type="text" value="GuestNetwork" disabled style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;background:#f3f4f6;box-sizing:border-box;"/></div>
-                <div data-aoi="if-security"><label style="display:block;font-weight:600;margin-bottom:6px;">Security Type</label><select id="if-security-select" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box;"><option>WEP</option><option>WPA2</option><option selected>WPA3</option></select></div>
+                <div data-aoi="if-security"><label style="display:block;font-weight:600;margin-bottom:6px;">Security Type</label><select id="if-security-select" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box;"><option>WEP</option><option>WPA2</option><option selected>WPA3</option></select>${isStaticHelp ? generateAoiHamburgerButton('if-security', 'instruction-following') : ''}</div>
               </div>
             </div>
             <div id="if-panel-1" style="padding:24px;display:none;">
               <div style="display:grid;gap:16px;">
-                <div data-aoi="if-dns"><label style="display:block;font-weight:600;margin-bottom:6px;">Primary DNS</label><input id="if-dns-input" type="text" placeholder="8.8.8.8" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box;"/></div>
+                <div data-aoi="if-dns"><label style="display:block;font-weight:600;margin-bottom:6px;">Primary DNS</label><input id="if-dns-input" type="text" placeholder="8.8.8.8" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box;"/>${isStaticHelp ? generateAoiHamburgerButton('if-dns', 'instruction-following') : ''}</div>
                 <div><label style="display:block;font-weight:600;margin-bottom:6px;">Secondary DNS</label><input type="text" value="8.8.4.4" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box;"/></div>
                 <div><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" checked style="width:18px;height:18px;"/> Enable DoH (DNS over HTTPS)</label></div>
               </div>
@@ -393,17 +692,19 @@ export const TASK_DEFINITIONS = {
               <div><label style="display:block;font-weight:600;margin-bottom:6px;">Channel Width</label><select style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box;"><option>20 MHz</option><option selected>40 MHz</option><option>80 MHz</option></select></div>
             </div>
             <div style="padding:24px;background:#f9fafb;border-top:1px solid #d1d5db;display:flex;gap:12px;justify-content:flex-end;">
-              <button data-aoi="if-save" id="if-save-btn"
-                type="button"
-                style="padding:10px 24px;background:#4f46e5;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;transition:background .2s;"
-              >
-                Save Changes
-              </button>
+              <div data-aoi="if-save" style="display:flex;align-items:center;gap:8px;">
+                <button id="if-save-btn" type="button"
+                  style="padding:10px 24px;background:#4f46e5;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;transition:background .2s;"
+                >Save Changes</button>
+                ${isStaticHelp ? generateAoiHamburgerButton('if-save', 'instruction-following') : ''}
+              </div>
               <button type="button" style="padding:10px 24px;background:#f3f4f6;color:#1f2937;border:1px solid #d1d5db;border-radius:6px;font-weight:600;cursor:pointer;">Cancel</button>
             </div>
           </div>
         </div>
-      </div>`,
+        ${helpPopup}
+      </div>`;
+    })(),
     aois: [
       { id: 'if-tab-network' }, { id: 'if-tab-security' }, { id: 'if-tab-advanced' },
       { id: 'if-security' }, { id: 'if-dns' }, { id: 'if-save' },
@@ -420,13 +721,26 @@ export const TASK_DEFINITIONS = {
     id:    'reading-inference',
     type:  'reading',
     title: 'Pharmacokinetics: Drug Absorption & Metabolism',
-    instructions: 'Read the passage carefully, then answer all comprehension and inference questions. You may enter fake information where needed — it will not affect the outcome of the experiment.',
-    stimulus_html: `
-      <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#f7fee7;font-family:system-ui,sans-serif;max-width:800px;line-height:1.8;">
-        <div data-aoi="ri-p1" style="margin-bottom:16px;"><p style="margin:0;color:#1f2937;"><strong>Drug absorption</strong> occurs when a pharmaceutical compound enters the bloodstream from its site of administration. For oral medications, this process begins in the gastrointestinal tract where the drug dissolves and crosses the intestinal epithelium through passive diffusion, active transport, or carrier-mediated mechanisms. The rate and extent of absorption depend on drug solubility, pH stability, and intestinal surface area. Factors such as food intake, gastric pH, and individual genetic variations significantly influence bioavailability — the fraction of the administered dose that reaches systemic circulation.</p></div>
+    instructions: (() => {
+      const condition = CONFIG.INTERVENTION_CONDITION;
+      if (condition === 'static_help') {
+        return 'Read the passage carefully, then answer all comprehension and inference questions. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰) next to the passage.';
+      } else if (condition === 'user_initiated') {
+        return 'Read the passage carefully, then answer all comprehension and inference questions. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
+      } else {
+        return 'Read the passage carefully, then answer all comprehension and inference questions. You may enter fake information where needed — it will not affect the outcome of the experiment.';
+      }
+    })(),
+    stimulus_html: (() => {
+      const isStaticHelp = CONFIG.INTERVENTION_CONDITION === 'static_help';
+      const helpPopup = isStaticHelp ? generatePerAoiHamburgerMenus('reading-inference') : '';
+      
+      return `
+      <div style="padding:24px;border:1px solid #d1d5db;border-radius:16px;background:#f7fee7;font-family:system-ui,sans-serif;max-width:800px;line-height:1.8;position:relative;">
+        <div data-aoi="ri-p1" style="margin-bottom:16px;position:relative;"><p style="margin:0;color:#1f2937;"><strong>Drug absorption</strong> occurs when a pharmaceutical compound enters the bloodstream from its site of administration. For oral medications, this process begins in the gastrointestinal tract where the drug dissolves and crosses the intestinal epithelium through passive diffusion, active transport, or carrier-mediated mechanisms. The rate and extent of absorption depend on drug solubility, pH stability, and intestinal surface area. Factors such as food intake, gastric pH, and individual genetic variations significantly influence bioavailability — the fraction of the administered dose that reaches systemic circulation.</p>${isStaticHelp ? generateAoiHamburgerButton('ri-p1', 'reading-inference') : ''}</div>
         
-        <div data-aoi="ri-p3" style="margin-bottom:20px;"><p style="margin:0;color:#1f2937;"><strong>Individual variation</strong> in drug metabolism is largely determined by genetic polymorphisms in the cytochrome P450 gene family, particularly CYP2D6 and CYP3A4. Subjects are classified as poor, intermediate, normal (extensive), or ultra-rapid metabolisers based on their enzymatic activity. Elderly patients and those with hepatic or renal impairment typically experience reduced drug clearance, requiring dose adjustment to prevent toxicity. Conversely, ultra-rapid metabolisers may need higher doses to achieve therapeutic effect.</p></div>
-        <div data-aoi="ri-table" style="margin:20px 0;padding:16px;background:#dcfce7;border-radius:8px;border:1px solid #86efac;overflow-x:auto;">
+        <div data-aoi="ri-p3" style="margin-bottom:20px;position:relative;"><p style="margin:0;color:#1f2937;"><strong>Individual variation</strong> in drug metabolism is largely determined by genetic polymorphisms in the cytochrome P450 gene family, particularly CYP2D6 and CYP3A4. Subjects are classified as poor, intermediate, normal (extensive), or ultra-rapid metabolisers based on their enzymatic activity. Elderly patients and those with hepatic or renal impairment typically experience reduced drug clearance, requiring dose adjustment to prevent toxicity. Conversely, ultra-rapid metabolisers may need higher doses to achieve therapeutic effect.</p>${isStaticHelp ? generateAoiHamburgerButton('ri-p3', 'reading-inference') : ''}</div>
+        <div data-aoi="ri-table" style="margin:20px 0;padding:16px;background:#dcfce7;border-radius:8px;border:1px solid #86efac;overflow-x:auto;position:relative;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead><tr style="background:#bbf7d0;border-bottom:2px solid #6ee7b7;"><th style="padding:10px;text-align:left;color:#15803d;">Patient Type</th><th style="padding:10px;color:#15803d;">Enzymatic Activity</th><th style="padding:10px;color:#15803d;">Dose Adjustment</th><th style="padding:10px;color:#15803d;">Risk</th></tr></thead>
             <tbody>
@@ -436,8 +750,11 @@ export const TASK_DEFINITIONS = {
               <tr><td style="padding:10px;">Ultra-rapid Metabolisers</td><td style="padding:10px;">Very High</td><td style="padding:10px;color:#3b82f6;font-weight:600;">Increase 50–100%</td><td style="padding:10px;">Low (Therapeutic Failure)</td></tr>
             </tbody>
           </table>
+          ${isStaticHelp ? generateAoiHamburgerButton('ri-table', 'reading-inference') : ''}
         </div>
-      </div>`,
+        ${helpPopup}
+      </div>`;
+    })(),
     aois: [{ id: 'ri-p1' }, { id: 'ri-p3' }, { id: 'ri-table' }],
     questions: [
       { id: 'ri-q1', prompt: 'Which enzyme system is primarily responsible for hepatic drug metabolism?', type: 'text' },
@@ -512,6 +829,14 @@ export function initTaskRunner(gazeManager) {
 
   function _logEvent(type, extra = {}) {
     sessionData.events.push({ type, task_id: currentTask?.id || null, timestamp: Date.now(), ...extra });
+  }
+
+  function _logStaticHelpInteraction(helpItemIndex, question) {
+    _logEvent('static_help_interaction', {
+      task_id: currentTask?.id,
+      help_item_index: helpItemIndex,
+      question: question,
+    });
   }
 
   // ── Validation ────────────────────────────────────────────────────────────
@@ -752,6 +1077,8 @@ export function initTaskRunner(gazeManager) {
 
         <div id="task-stimulus" style="margin-bottom:28px;">${task.stimulus_html}</div>
 
+        ${generateConfusedButton(task.id)}
+
         ${questionsHtml ? `
           <div style="padding:24px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:16px;margin-bottom:24px;">
             <h3 style="margin:0 0 18px;font-size:18px;color:#111827;">Your responses</h3>
@@ -774,6 +1101,137 @@ export function initTaskRunner(gazeManager) {
         ${autoAdvanceBanner}
       </div>`;
 
+
+    // Expose logging function globally for static help interactions
+    window._logStaticHelpItem = (index, question) => {
+      _logStaticHelpInteraction(index, question);
+    };
+
+    // Expose confused button handler for user_initiated condition
+    window._handleConfusedClick = () => {
+      const subjectId = sessionData.participantId || sessionData.PROLIFIC_PID || 'participant-1';
+      
+      // Use rolling window to determine most looked-at AOI in last 2 seconds
+      const aoiId = _getMostLookedAtAoi(2000);
+      
+      // Infer AOI type based on current task (more reliable than gaze data for user_initiated)
+      const aoiType = _inferAoiTypeFromTask(currentTask?.id);
+      const saLevel = _inferSaLevelFromRecentBehavior();
+      
+      // Log the button click with SA level and AOI ID
+      sessionData.events = sessionData.events || [];
+      sessionData.events.push({
+        type: 'confused_button_click',
+        task_id: currentTask?.id || null,
+        aoi_type: aoiType,
+        aoi_id: aoiId,
+        sa_level: saLevel,
+        timestamp: Date.now(),
+      });
+      
+      console.log('[confused-button] Clicked - Task:', currentTask?.id, 'AOI:', aoiId, 'Type:', aoiType, 'SA:', saLevel);
+      
+      // Trigger the confusion event with taskId for intervention selection
+      onConfusionFired({
+        subjectId,
+        taskId: currentTask?.id || null,
+        aoiType,
+        aoiId,
+        saLevel,
+        triggeringFeature: 'user_initiated_button',
+        confidence: 1.0,
+      });
+    };
+
+    function _getMostLookedAtAoi(windowMs) {
+      const now = Date.now();
+      const gazeEvents = sessionData.gazeEvents || [];
+      
+      console.log('[aoi-detection] Total gaze events in session:', gazeEvents.length);
+      
+      // Filter gaze events within the time window
+      const recentGaze = gazeEvents.filter(g => g.timestamp && (now - g.timestamp) <= windowMs);
+      
+      console.log('[aoi-detection] Gaze events in last', windowMs, 'ms:', recentGaze.length);
+      
+      if (recentGaze.length === 0) {
+        console.log('[aoi-detection] No recent gaze events - check if gaze tracking is active');
+        return null;
+      }
+      
+      // Log sample of recent gaze events to debug
+      console.log('[aoi-detection] Sample recent gaze events:', recentGaze.slice(0, 5).map(g => ({
+        timestamp: g.timestamp,
+        aoi_id: g.aoi_id,
+        x: g.x,
+        y: g.y
+      })));
+      
+      // Count occurrences of each AOI ID
+      const aoiCounts = {};
+      recentGaze.forEach(g => {
+        const aoiId = g.aoi_id || 'null';
+        aoiCounts[aoiId] = (aoiCounts[aoiId] || 0) + 1;
+      });
+      
+      console.log('[aoi-detection] AOI counts in window:', aoiCounts);
+      
+      // Find the AOI with the highest count
+      let maxCount = 0;
+      let mostLookedAtAoi = null;
+      
+      for (const [aoiId, count] of Object.entries(aoiCounts)) {
+        if (count > maxCount) {
+          maxCount = count;
+          mostLookedAtAoi = aoiId === 'null' ? null : aoiId;
+        }
+      }
+      
+      const percentage = (maxCount / recentGaze.length * 100).toFixed(1);
+      console.log('[aoi-detection] Window:', windowMs, 'ms, Events:', recentGaze.length, 
+                  'Most looked at:', mostLookedAtAoi, `(${percentage}%)`);
+      
+      return mostLookedAtAoi;
+    }
+
+    function _inferAoiTypeFromTask(taskId) {
+      // Map tasks to their primary AOI types
+      const taskToAoiType = {
+        'broken-nav': 'navigation',
+        'ambiguous-form': 'form_field',
+        'data-table': 'data_table_cell',
+        'visual-search': 'diagram_or_figure',
+        'reading-inference': 'text_content',
+        'math-problem': 'text_content',
+        'instruction-following': 'icon_button',
+        'error-diagnosis': 'text_content',
+      };
+      return taskToAoiType[taskId] || 'unknown';
+    }
+
+    function _inferAoiType(aoiId) {
+      const id = String(aoiId || '').toLowerCase();
+      if (!id) return 'unknown';
+      if (id.includes('field') || id.includes('input') || id.includes('form')) return 'form_field';
+      if (id.includes('nav') || id.includes('menu') || id.includes('button') || id.includes('next')) return 'navigation';
+      if (id.includes('table') || id.includes('cell') || id.includes('row')) return 'data_table_cell';
+      if (id.includes('text') || id.includes('paragraph') || id.includes('content')) return 'text_content';
+      if (id.includes('image') || id.includes('figure') || id.includes('diagram')) return 'diagram_or_figure';
+      return 'unknown';
+    }
+
+    function _inferSaLevelFromRecentBehavior() {
+      // Simple heuristic: if user clicked the button, they're likely at SA level 2 or 3
+      // In a real implementation, this would use the live classifier's feature computation
+      const recentGaze = sessionData.gazeEvents?.slice(-20) || [];
+      const aoiIds = recentGaze.map(g => g.aoi_id).filter(Boolean);
+      const uniqueAois = new Set(aoiIds);
+      
+      // If they've visited many different AOIs recently, likely higher confusion
+      if (uniqueAois.size > 5) return 3;
+      if (uniqueAois.size > 3) return 2;
+      return 1;
+    }
 
     // Real-time validation for ambiguous-form: enable/disable Submit button
     if (task.id === 'ambiguous-form') {
@@ -933,6 +1391,7 @@ export function initTaskRunner(gazeManager) {
 
     _logEvent('task-begin', { task_id: currentTask.id });
     currentTaskStart = performance.now();
+    sessionData.currentTaskId = currentTask.id;
 
     gazeManager.setActiveTask(currentTask.id);
     if (!currentTask.no_time_limit) {
@@ -1056,6 +1515,7 @@ export function initTaskRunner(gazeManager) {
       return;
     }
     currentTask = tasks[currentTaskIndex];
+    sessionData.currentTaskId = currentTask.id;
     _logEvent('task-load', { task_id: currentTask.id });
     _renderInstructionScreen(currentTask);
     showScreen('screen-task-instruction');

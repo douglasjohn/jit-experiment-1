@@ -18,7 +18,8 @@ import { sessionData } from '../experiment/session.js';
 export const CONDITIONS = {
   NO_HELP: 'no_help',
   STATIC_HELP: 'static_help',
-  PERSONALIZED_HELP: 'personalized_help',
+  USER_INITIATED: 'user_initiated',
+  SYSTEM_INITIATED: 'system_initiated',
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -120,11 +121,11 @@ function thompsonSample(state) {
 
 /**
  * Select an arm for PERSONALIZED_HELP. Content candidates come from
- * interventions.js and ARE aoi-specific; the learned mean/variance used
+ * interventions.js and ARE task-specific; the learned mean/variance used
  * to rank them is keyed by saLevel only (see module docstring).
  */
-export function selectPersonalizedArm(subjectId, aoiType, saLevel) {
-  const candidates = getArms(aoiType, saLevel);
+export function selectPersonalizedArm(subjectId, taskId, saLevel) {
+  const candidates = getArms(taskId, saLevel);
   let best = null;
   let bestSample = -Infinity;
   for (const c of candidates) {
@@ -158,9 +159,9 @@ export function recordReward(subjectId, saLevel, armId, reward) {
 // ──────────────────────────────────────────────────────────────────────────
 
 /**
- * @param {object} event - { subjectId, aoiType, saLevel, triggeringFeature, timestamp }
+ * @param {object} event - { subjectId, taskId, aoiType, saLevel, triggeringFeature, timestamp, aoiId }
  * @param {string} condition - one of CONDITIONS (read from CONFIG, not hardcoded)
- * @returns {object|null} decision { condition, arm, aoiType, saLevel } or null for NO_HELP
+ * @returns {object|null} decision { condition, arm, taskId, aoiType, saLevel } or null for NO_HELP
  */
 export function handleConfusionEvent(event, condition) {
   if (!Object.values(CONDITIONS).includes(condition)) {
@@ -169,16 +170,21 @@ export function handleConfusionEvent(event, condition) {
 
   let arm = null;
   if (condition === CONDITIONS.STATIC_HELP) {
-    arm = getStaticArm(event.aoiType, event.saLevel);
-  } else if (condition === CONDITIONS.PERSONALIZED_HELP) {
-    arm = selectPersonalizedArm(event.subjectId, event.aoiType, event.saLevel);
+    arm = getStaticArm(event.taskId, event.saLevel);
+  } else if (condition === CONDITIONS.USER_INITIATED || condition === CONDITIONS.SYSTEM_INITIATED) {
+    arm = selectPersonalizedArm(event.subjectId, event.taskId, event.saLevel);
   }
   // CONDITIONS.NO_HELP -> arm stays null, nothing rendered.
+
+  // Filter out contextually inappropriate interventions
+  arm = filterContextuallyInappropriateArms(arm, event);
 
   const decision = {
     condition,
     arm,
-    aoiType: event.aoiType,
+    taskId: event.taskId,
+    aoiType: event.aoiType || null,
+    aoiId: event.aoiId || null,
     saLevel: event.saLevel,
     triggeringFeature: event.triggeringFeature ?? null,
     timestamp: event.timestamp ?? Date.now(),
@@ -189,7 +195,8 @@ export function handleConfusionEvent(event, condition) {
     type: 'intervention-decision-engine',
     subject_id: event.subjectId,
     condition,
-    aoi_type: event.aoiType,
+    task_id: event.taskId,
+    aoi_type: event.aoiType || null,
     sa_level: event.saLevel,
     arm_id: arm ? arm.armId : null,
     arm_family: arm ? arm.family : null,
@@ -197,6 +204,38 @@ export function handleConfusionEvent(event, condition) {
   });
 
   return decision;
+}
+
+/**
+ * Filter out interventions that don't make sense in the current context.
+ * For example, don't show "field needs to be filled" if the field is already filled.
+ */
+function filterContextuallyInappropriateArms(arm, event) {
+  if (!arm) return null;
+  
+  // Check for form fields with "needs to be filled" type messages
+  if (event.aoiType === 'form_field' && event.aoiId) {
+    const text = arm.render?.payload?.text || '';
+    const needsFillingPhrases = ['needs to be filled', 'haven\'t filled', 'needs an answer', 'must be filled'];
+    
+    if (needsFillingPhrases.some(phrase => text.toLowerCase().includes(phrase))) {
+      // Check if the field is actually filled
+      const fieldElement = document.querySelector(`[data-aoi="${event.aoiId}"]`) ||
+                         document.getElementById(event.aoiId) ||
+                         document.querySelector(`#${event.aoiId}`);
+      
+      if (fieldElement) {
+        const input = fieldElement.querySelector('input, select, textarea');
+        if (input && input.value && input.value.trim() !== '') {
+          // Field is filled, return null to skip this intervention
+          console.log('[intervention] Skipped "needs filling" intervention for filled field:', event.aoiId);
+          return null;
+        }
+      }
+    }
+  }
+  
+  return arm;
 }
 
 /**

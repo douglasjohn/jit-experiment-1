@@ -8,19 +8,6 @@
 // Edit content here. Edit selection logic in intervention/interventionEngine.js.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// AOI types — MUST match whatever string your classifier / fixation
-// pipeline actually emits as `aoi_id` / `aoi_type`. Update this list to
-// mirror your real taxonomy before running anything.
-export const AOI_TYPES = {
-  NAVIGATION: 'navigation',
-  FORM_FIELD: 'form_field',
-  TEXT_CONTENT: 'text_content',
-  ICON_BUTTON: 'icon_button',
-  DATA_TABLE_CELL: 'data_table_cell',
-  DIAGRAM_OR_FIGURE: 'diagram_or_figure',
-  UNKNOWN: 'unknown',
-};
-
 // Situational awareness levels — mirrors classifier.js SA_NORM keys (1,2,3)
 // mapped to Endsley-style labels. Keep numeric keys too since your Python
 // classifier reference uses SA_NORM = {1: perception, 2: comprehension, 3: projection}.
@@ -46,7 +33,7 @@ export const INTERVENTION_FAMILY = {
  * Arm shape:
  * {
  *   armId: stable id, logged verbatim, used as the bandit's arm key. Keep
- *          these SAME across AOI/SA buckets where semantically equivalent
+ *          these SAME across task/SA buckets where semantically equivalent
  *          (e.g. "A" is always "attentional cue") so pooled population
  *          priors generalize across contexts instead of fragmenting.
  *   family: one of INTERVENTION_FAMILY
@@ -59,93 +46,251 @@ export const INTERVENTION_FAMILY = {
 const arm = (armId, family, type, payload) => ({ armId, family, render: { type, payload } });
 
 // ──────────────────────────────────────────────────────────────────────────
-// BANK: keyed by `${aoiType}::${saLevel}` -> array of candidate arms.
+// BANK: keyed by `${taskId}::${saLevel}` -> array of candidate arms.
 // Arm order matters for STATIC_HELP: index 0 is the fixed default.
 // ──────────────────────────────────────────────────────────────────────────
 const BANK = {};
 
-function setBucket(aoiType, saLevel, arms) {
-  BANK[`${aoiType}::${saLevel}`] = arms;
+function setBucket(taskId, saLevel, arms) {
+  BANK[`${taskId}::${saLevel}`] = arms;
 }
 
-// --- NAVIGATION -------------------------------------------------------------
-setBucket(AOI_TYPES.NAVIGATION, SA_LEVELS.PERCEPTION, [
+// --- broken-nav (navigation task) -------------------------------------------------------------
+setBucket('broken-nav', SA_LEVELS.PERCEPTION, [
   arm('A', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-arrow',
-    { text: 'Look here to navigate.', durationMs: 3000 }),
+    { text: 'Look at the footer area for navigation options.', durationMs: 3000 }),
   arm('B', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
-    { text: 'This is the main menu.', style: 'pulse', durationMs: 3500 }),
+    { text: 'The "about" dropdown contains the returns policy.', style: 'pulse', durationMs: 3500 }),
   arm('C', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-spotlight',
-    { text: 'This element controls where you go next.', durationMs: 3000 }),
+    { text: 'Check the footer at the bottom of the page.', durationMs: 3000 }),
   arm('D', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-toast',
-    { text: 'E.g. clicking "Next" here moves you forward.', durationMs: 4000 }),
+    { text: 'Click "about" in the footer, then select "Returns policy".', durationMs: 4000 }),
 ]);
 
-setBucket(AOI_TYPES.NAVIGATION, SA_LEVELS.COMPREHENSION, [
+setBucket('broken-nav', SA_LEVELS.COMPREHENSION, [
   arm('A', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
-    { text: 'This menu lets you switch between sections.', style: 'outline', durationMs: 4000 }),
+    { text: 'The footer dropdown reveals menu options when clicked.', style: 'outline', durationMs: 4000 }),
   arm('B', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-modal',
-    { title: 'How this works', body: 'Clicking a section name jumps you straight there.' }),
+    { title: 'How to find returns policy', body: 'Look for the "about" link in the footer area and click it to reveal the returns policy option.' }),
   arm('C', INTERVENTION_FAMILY.PREDICTION, 'prediction-toast',
-    { text: 'If you keep scrolling past this, you may miss the menu entirely.', durationMs: 4000 }),
+    { text: 'If you click the main navigation, you might miss the footer dropdown.', durationMs: 4000 }),
   arm('D', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-arrow',
-    { text: 'This is a navigation control, not body text.', durationMs: 3000 }),
+    { text: 'The returns policy is in the footer, not the main menu.', durationMs: 3000 }),
 ]);
 
-setBucket(AOI_TYPES.NAVIGATION, SA_LEVELS.PROJECTION, [
+setBucket('broken-nav', SA_LEVELS.PROJECTION, [
   arm('A', INTERVENTION_FAMILY.PREDICTION, 'prediction-toast',
-    { text: 'Clicking this will take you to the next step, not submit your answer.', durationMs: 4000 }),
+    { text: 'Selecting "Returns policy" will show the policy content.', durationMs: 4000 }),
   arm('B', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
-    { text: 'This advances the task; it does not save anything.', style: 'pulse', durationMs: 3500 }),
+    { text: 'Your final selection is what matters when you submit.', style: 'pulse', durationMs: 3500 }),
   arm('C', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-modal',
-    { title: 'What happens next', body: 'After this click, a new task screen loads.' }),
+    { title: 'What happens next', body: 'After finding the returns policy, select whether you found it in the answer panel.' }),
   arm('D', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-spotlight',
-    { text: 'Check what this button says before clicking.', durationMs: 3000 }),
+    { text: 'Focus on the footer dropdown, not the Help button.', durationMs: 3000 }),
 ]);
 
-// --- FORM_FIELD ---------------------------------------------------------
-setBucket(AOI_TYPES.FORM_FIELD, SA_LEVELS.PERCEPTION, [
+// --- ambiguous-form (form task) ---------------------------------------------------------
+setBucket('ambiguous-form', SA_LEVELS.PERCEPTION, [
   arm('A', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-arrow',
-    { text: 'This field needs an answer.', durationMs: 3000 }),
+    { text: 'This field needs to be filled in.', durationMs: 3000 }),
   arm('B', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
-    { text: 'Enter your response here.', style: 'outline', durationMs: 3000 }),
+    { text: 'Enter any valid information here.', style: 'outline', durationMs: 3000 }),
   arm('C', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-spotlight',
-    { text: "You haven't filled this in yet.", durationMs: 3000 }),
+    { text: "You haven't filled this field yet.", durationMs: 3000 }),
   arm('D', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-toast',
-    { text: 'This is where your numeric answer goes.', durationMs: 3500 }),
+    { text: 'You can enter fake information — it won\'t affect the experiment.', durationMs: 3500 }),
 ]);
 
-setBucket(AOI_TYPES.FORM_FIELD, SA_LEVELS.COMPREHENSION, [
+setBucket('ambiguous-form', SA_LEVELS.COMPREHENSION, [
   arm('A', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-toast',
-    { text: 'Example: "42" would be a valid entry here.', durationMs: 4000 }),
+    { text: 'Some fields may show validation errors — try different inputs.', durationMs: 4000 }),
   arm('B', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
-    { text: 'This field expects a number, not text.', style: 'outline', durationMs: 4000 }),
+    { text: 'Fill all fields to the best of your ability.', style: 'outline', durationMs: 4000 }),
   arm('C', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-modal',
-    { title: 'Format expected', body: 'Use digits only, e.g. "1500".' }),
+    { title: 'About the errors', body: 'Some fields have validation rules that may reject certain inputs. Just fill them out anyway.' }),
   arm('D', INTERVENTION_FAMILY.PREDICTION, 'prediction-toast',
-    { text: "If this is left blank, you won't be able to submit.", durationMs: 4000 }),
+    { text: "All fields must be filled before you can submit.", durationMs: 4000 }),
 ]);
 
-setBucket(AOI_TYPES.FORM_FIELD, SA_LEVELS.PROJECTION, [
+setBucket('ambiguous-form', SA_LEVELS.PROJECTION, [
   arm('A', INTERVENTION_FAMILY.PREDICTION, 'prediction-toast',
-    { text: "Submitting will lock this answer — you can't edit it after.", durationMs: 4000 }),
+    { text: "Submitting will complete the form task.", durationMs: 4000 }),
   arm('B', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
-    { text: 'This determines how your response is scored.', style: 'pulse', durationMs: 3500 }),
+    { text: 'Your answers don\'t need to be perfect — just complete the form.', style: 'pulse', durationMs: 3500 }),
   arm('C', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-modal',
-    { title: 'Before you submit', body: 'Double check the value, then continue.' }),
+    { title: 'Before you submit', body: 'Make sure all fields have some content, then click submit.' }),
   arm('D', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-arrow',
-    { text: 'This is your final answer for this field.', durationMs: 3000 }),
+    { text: 'The task is to complete the form despite any confusing error messages.', durationMs: 3000 }),
 ]);
 
-// --- TEXT_CONTENT (e.g. reading comprehension) ---------------------------
-setBucket(AOI_TYPES.TEXT_CONTENT, SA_LEVELS.COMPREHENSION, [
-  arm('A', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-inline',
-    { text: 'This is the key term the question refers to.', style: 'underline', durationMs: 4000 }),
+// --- data-table (table analysis task) ---------------------------------------------------------
+setBucket('data-table', SA_LEVELS.PERCEPTION, [
+  arm('A', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-arrow',
+    { text: 'Look at the emissions column for each transport mode.', durationMs: 3000 }),
+  arm('B', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
+    { text: 'The table shows pre-calculated weighted emissions values.', style: 'pulse', durationMs: 3500 }),
+  arm('C', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-spotlight',
+    { text: 'Compare the emissions values across different modes.', durationMs: 3000 }),
+  arm('D', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-toast',
+    { text: 'Private Car has the highest emissions at 192 g/km.', durationMs: 4000 }),
+]);
+
+setBucket('data-table', SA_LEVELS.COMPREHENSION, [
+  arm('A', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
+    { text: 'Weighted emissions combine mode share with emissions per km.', style: 'outline', durationMs: 4000 }),
   arm('B', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-modal',
-    { title: 'In other words', body: 'This sentence is defining the term used just above it.' }),
+    { title: 'Understanding the table', body: 'The table shows transport modes, their mode share percentages, and their environmental impact in terms of CO₂ emissions.' }),
   arm('C', INTERVENTION_FAMILY.PREDICTION, 'prediction-toast',
-    { text: 'This detail will matter for the question that follows.', durationMs: 4000 }),
+    { text: 'Cycling shows 0% weighted emissions because it produces 0 g CO₂/km.', durationMs: 4000 }),
+  arm('D', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-arrow',
+    { text: 'Focus on the relationship between mode share and emissions.', durationMs: 3000 }),
+]);
+
+setBucket('data-table', SA_LEVELS.PROJECTION, [
+  arm('A', INTERVENTION_FAMILY.PREDICTION, 'prediction-toast',
+    { text: 'The Urban Total sums the data for all urban transport modes.', durationMs: 4000 }),
+  arm('B', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
+    { text: 'Use the table data to answer the question about emissions.', style: 'pulse', durationMs: 3500 }),
+  arm('C', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-modal',
+    { title: 'Analyzing the data', body: 'Look for patterns in how different transport modes contribute to overall urban emissions.' }),
   arm('D', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-spotlight',
-    { text: 'Re-read this sentence carefully.', durationMs: 3000 }),
+    { text: 'Consider which transport mode has the highest environmental impact.', durationMs: 3000 }),
+]);
+
+// --- visual-search (transit map task) ----------------------
+setBucket('visual-search', SA_LEVELS.PERCEPTION, [
+  arm('A', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-arrow',
+    { text: 'Each colored line represents a different transit route.', durationMs: 3000 }),
+  arm('B', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
+    { text: 'Circles on the map are stations.', style: 'pulse', durationMs: 3500 }),
+  arm('C', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-spotlight',
+    { text: 'Follow the lines to see connections between stations.', durationMs: 3000 }),
+  arm('D', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-toast',
+    { text: 'Use the legend to identify which color corresponds to which line.', durationMs: 4000 }),
+]);
+
+setBucket('visual-search', SA_LEVELS.COMPREHENSION, [
+  arm('A', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
+    { text: 'An interchange is where two or more lines meet at the same station.', style: 'outline', durationMs: 4000 }),
+  arm('B', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-modal',
+    { title: 'Reading the map', body: 'Interchanges allow you to switch between transit lines. Count how many times you need to switch to find the route with fewest interchanges.' }),
+  arm('C', INTERVENTION_FAMILY.PREDICTION, 'prediction-toast',
+    { text: 'The route with the fewest interchanges is usually the most direct.', durationMs: 4000 }),
+  arm('D', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-arrow',
+    { text: 'Trace the path from start to end station, counting line switches.', durationMs: 3000 }),
+]);
+
+setBucket('visual-search', SA_LEVELS.PROJECTION, [
+  arm('A', INTERVENTION_FAMILY.PREDICTION, 'prediction-toast',
+    { text: 'Your answer should specify which line has the fewest interchanges.', durationMs: 4000 }),
+  arm('B', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
+    { text: 'Consider both the number of interchanges and the total distance.', style: 'pulse', durationMs: 3500 }),
+  arm('C', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-modal',
+    { title: 'Finding the best route', body: 'Compare different possible paths between the start and end stations to find the one with minimal line changes.' }),
+  arm('D', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-spotlight',
+    { text: 'Look for direct connections first, then consider one-interchange routes.', durationMs: 3000 }),
+]);
+
+// --- math-problem (dosage calculation task) ----------------
+setBucket('math-problem', SA_LEVELS.PERCEPTION, [
+  arm('A', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-arrow',
+    { text: 'Read the problem statement carefully.', durationMs: 3000 }),
+  arm('B', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
+    { text: 'The key information is in the first paragraph.', style: 'pulse', durationMs: 3500 }),
+  arm('C', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-spotlight',
+    { text: 'Pay attention to the numbers and units given.', durationMs: 3000 }),
+  arm('D', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-toast',
+    { text: 'Identify the patient weight and dosage per kg first.', durationMs: 4000 }),
+]);
+
+setBucket('math-problem', SA_LEVELS.COMPREHENSION, [
+  arm('A', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
+    { text: 'Multiply weight by dosage per kg to get the required dose.', style: 'outline', durationMs: 4000 }),
+  arm('B', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-modal',
+    { title: 'Calculation steps', body: 'Required dose = patient weight (72 kg) × dosage per kg (15 mg/kg).' }),
+  arm('C', INTERVENTION_FAMILY.PREDICTION, 'prediction-toast',
+    { text: 'The maximum daily dose is 4800 mg — your calculated dose should be lower.', durationMs: 4000 }),
+  arm('D', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-arrow',
+    { text: 'Use the scratchpad to show your calculations.', durationMs: 3000 }),
+]);
+
+setBucket('math-problem', SA_LEVELS.PROJECTION, [
+  arm('A', INTERVENTION_FAMILY.PREDICTION, 'prediction-toast',
+    { text: 'Choose tablet sizes that most efficiently deliver the required dose.', durationMs: 4000 }),
+  arm('B', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
+    { text: 'Consider combinations of 250 mg, 500 mg, and 1000 mg tablets.', style: 'pulse', durationMs: 3500 }),
+  arm('C', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-modal',
+    { title: 'Tablet selection', body: 'For 1080 mg, you could use one 1000 mg tablet plus one 500 mg tablet (total 1500 mg) or other combinations.' }),
+  arm('D', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-spotlight',
+    { text: 'Your answer should specify which tablet sizes to use.', durationMs: 3000 }),
+]);
+
+// --- instruction-following (router configuration task) ----------
+setBucket('instruction-following', SA_LEVELS.PERCEPTION, [
+  arm('A', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-arrow',
+    { text: 'Click the Security tab (🔒) to access DNS settings.', durationMs: 3000 }),
+  arm('B', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
+    { text: 'The DNS settings are in the Security tab, not Network.', style: 'pulse', durationMs: 3500 }),
+  arm('C', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-spotlight',
+    { text: 'Look for the lock icon to find the Security tab.', durationMs: 3000 }),
+  arm('D', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-toast',
+    { text: 'Click the 🔒 button, then find the Primary DNS field.', durationMs: 4000 }),
+]);
+
+setBucket('instruction-following', SA_LEVELS.COMPREHENSION, [
+  arm('A', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
+    { text: 'The Security tab contains DNS configuration options.', style: 'outline', durationMs: 4000 }),
+  arm('B', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-modal',
+    { title: 'Router configuration steps', body: '1. Click the Security tab (🔒). 2. Enter 8.8.8.8 in Primary DNS. 3. Click Save Changes.' }),
+  arm('C', INTERVENTION_FAMILY.PREDICTION, 'prediction-toast',
+    { text: 'The Network tab only shows WiFi SSID and security type.', durationMs: 4000 }),
+  arm('D', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-arrow',
+    { text: 'DNS settings are separate from WiFi security type.', durationMs: 3000 }),
+]);
+
+setBucket('instruction-following', SA_LEVELS.PROJECTION, [
+  arm('A', INTERVENTION_FAMILY.PREDICTION, 'prediction-toast',
+    { text: 'After setting DNS to 8.8.8.8, click Save Changes to apply.', durationMs: 4000 }),
+  arm('B', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
+    { text: 'The Advanced tab is not needed for this configuration.', style: 'pulse', durationMs: 3500 }),
+  arm('C', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-modal',
+    { title: 'Completing the task', body: 'Configure DNS in Security tab, then click Save Changes at the bottom.' }),
+  arm('D', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-spotlight',
+    { text: 'Your final step is clicking Save Changes.', durationMs: 3000 }),
+]);
+
+// --- reading-inference (drug absorption task) ----------------
+setBucket('reading-inference', SA_LEVELS.PERCEPTION, [
+  arm('A', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-arrow',
+    { text: 'Read the passage carefully to understand drug absorption.', durationMs: 3000 }),
+  arm('B', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
+    { text: 'The first paragraph defines what drug absorption means.', style: 'pulse', durationMs: 3500 }),
+  arm('C', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-spotlight',
+    { text: 'Pay attention to the factors that affect bioavailability.', durationMs: 3000 }),
+  arm('D', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-toast',
+    { text: 'Drug absorption is when a compound enters the bloodstream from its administration site.', durationMs: 4000 }),
+]);
+
+setBucket('reading-inference', SA_LEVELS.COMPREHENSION, [
+  arm('A', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
+    { text: 'Bioavailability depends on how much drug reaches systemic circulation.', style: 'outline', durationMs: 4000 }),
+  arm('B', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-modal',
+    { title: 'Understanding bioavailability', body: 'Factors like drug solubility, pH stability, and intestinal surface area determine how much drug is absorbed.' }),
+  arm('C', INTERVENTION_FAMILY.PREDICTION, 'prediction-toast',
+    { text: 'Different administration routes (oral, IV, etc.) affect absorption rates.', durationMs: 4000 }),
+  arm('D', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-arrow',
+    { text: 'Focus on the relationship between absorption and bioavailability.', durationMs: 3000 }),
+]);
+
+setBucket('reading-inference', SA_LEVELS.PROJECTION, [
+  arm('A', INTERVENTION_FAMILY.PREDICTION, 'prediction-toast',
+    { text: 'Consider how genetic variations might affect drug metabolism.', durationMs: 4000 }),
+  arm('B', INTERVENTION_FAMILY.HIGHLIGHT_EXPLAIN, 'highlight-tooltip',
+    { text: 'Food intake and gastric pH can influence absorption efficiency.', style: 'pulse', durationMs: 3500 }),
+  arm('C', INTERVENTION_FAMILY.WORKED_EXAMPLE, 'example-modal',
+    { title: 'Clinical implications', body: 'Understanding absorption helps predict drug effectiveness and potential side effects in different patients.' }),
+  arm('D', INTERVENTION_FAMILY.ATTENTIONAL_CUE, 'cue-spotlight',
+    { text: 'Apply these concepts to answer questions about specific drugs.', durationMs: 3000 }),
 ]);
 
 // --- Fallback bucket: ALWAYS present so lookups never fail. -----------------
@@ -160,17 +305,17 @@ const FALLBACK_ARMS = [
     { text: 'Consider what this leads to next.', durationMs: 3500 }),
 ];
 [SA_LEVELS.PERCEPTION, SA_LEVELS.COMPREHENSION, SA_LEVELS.PROJECTION].forEach((sa) =>
-  setBucket(AOI_TYPES.UNKNOWN, sa, FALLBACK_ARMS)
+  setBucket('fallback', sa, FALLBACK_ARMS)
 );
 
-/** Safe lookup — never throws, falls back to UNKNOWN bucket for that SA level. */
-export function getArms(aoiType, saLevel) {
-  const key = `${aoiType}::${saLevel}`;
+/** Safe lookup — never throws, falls back to fallback bucket for that SA level. */
+export function getArms(taskId, saLevel) {
+  const key = `${taskId}::${saLevel}`;
   if (BANK[key]) return BANK[key];
-  return BANK[`${AOI_TYPES.UNKNOWN}::${saLevel}`];
+  return BANK[`fallback::${saLevel}`];
 }
 
 /** STATIC_HELP condition: always the fixed default (index 0) for that bucket. */
-export function getStaticArm(aoiType, saLevel) {
-  return getArms(aoiType, saLevel)[0];
+export function getStaticArm(taskId, saLevel) {
+  return getArms(taskId, saLevel)[0];
 }

@@ -251,55 +251,61 @@ export function showFixationIndicator(x, y) {
 // already defined above in this file.
 
 const RENDERERS = {
-  'cue-arrow': (root, payload) => {
+  'cue-arrow': (root, payload, position) => {
+    const pos = position || { top: '24px', left: '50%', transform: 'translateX(-50%)' };
     root.innerHTML = `
-      <div style="position:absolute; top:24px; left:50%; transform:translateX(-50%);
+      <div style="position:absolute; top:${pos.top}; left:${pos.left}; transform:${pos.transform};
         background:#111827; color:#fff; padding:10px 16px; border-radius:10px;
         font-family:system-ui,sans-serif; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
         ➜ ${payload.text}
       </div>`;
   },
-  'cue-spotlight': (root, payload) => {
+  'cue-spotlight': (root, payload, position) => {
+    const pos = position || { top: '24px', left: '50%', transform: 'translateX(-50%)' };
     root.innerHTML = `
-      <div style="position:absolute; top:24px; left:50%; transform:translateX(-50%);
+      <div style="position:absolute; top:${pos.top}; left:${pos.left}; transform:${pos.transform};
         background:#4c1d95; color:#fff; padding:10px 16px; border-radius:10px;
         font-family:system-ui,sans-serif; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
         ${payload.text}
       </div>`;
   },
-  'highlight-tooltip': (root, payload) => {
+  'highlight-tooltip': (root, payload, position) => {
+    const pos = position || { top: '24px', left: '50%', transform: 'translateX(-50%)' };
     root.innerHTML = `
-      <div style="position:absolute; top:24px; left:50%; transform:translateX(-50%);
+      <div style="position:absolute; top:${pos.top}; left:${pos.left}; transform:${pos.transform};
         background:#1d4ed8; color:#fff; padding:10px 16px; border-radius:10px;
         font-family:system-ui,sans-serif; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
         ${payload.text}
       </div>`;
   },
-  'highlight-inline': (root, payload) => {
+  'highlight-inline': (root, payload, position) => {
+    const pos = position || { top: '24px', left: '50%', transform: 'translateX(-50%)' };
     root.innerHTML = `
-      <div style="position:absolute; top:24px; left:50%; transform:translateX(-50%);
+      <div style="position:absolute; top:${pos.top}; left:${pos.left}; transform:${pos.transform};
         background:#065f46; color:#fff; padding:10px 16px; border-radius:10px;
         font-family:system-ui,sans-serif; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
         ${payload.text}
       </div>`;
   },
-  'example-toast': (root, payload) => {
+  'example-toast': (root, payload, position) => {
+    const pos = position || { bottom: '32px', left: '50%', transform: 'translateX(-50%)' };
     root.innerHTML = `
-      <div style="position:absolute; bottom:32px; left:50%; transform:translateX(-50%);
+      <div style="position:absolute; bottom:${pos.bottom || '32px'}; left:${pos.left}; transform:${pos.transform};
         background:#111827; color:#fff; padding:10px 16px; border-radius:10px;
         font-family:system-ui,sans-serif; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
         ${payload.text}
       </div>`;
   },
-  'prediction-toast': (root, payload) => {
+  'prediction-toast': (root, payload, position) => {
+    const pos = position || { bottom: '32px', left: '50%', transform: 'translateX(-50%)' };
     root.innerHTML = `
-      <div style="position:absolute; bottom:32px; left:50%; transform:translateX(-50%);
+      <div style="position:absolute; bottom:${pos.bottom || '32px'}; left:${pos.left}; transform:${pos.transform};
         background:#92400e; color:#fff; padding:10px 16px; border-radius:10px;
         font-family:system-ui,sans-serif; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
         ${payload.text}
       </div>`;
   },
-  'example-modal': (root, payload) => {
+  'example-modal': (root, payload, position) => {
     root.innerHTML = `
       <div style="position:absolute; inset:0; background:rgba(0,0,0,0.45); display:flex;
         align-items:center; justify-content:center; pointer-events:auto;">
@@ -315,7 +321,7 @@ const RENDERERS = {
   },
 };
 
-export function showIntervention(render, decision) {
+export function showIntervention(render, decision, position) {
   if (!render || !RENDERERS[render.type]) {
     console.warn('[overlays] unknown intervention render type:', render?.type);
     return;
@@ -325,7 +331,7 @@ export function showIntervention(render, decision) {
   root.style.display = 'block';
   root.style.pointerEvents = render.type === 'example-modal' ? 'auto' : 'none';
 
-  RENDERERS[render.type](root, render.payload);
+  RENDERERS[render.type](root, render.payload, position);
 
   // Auto-dismiss toasts/cues/tooltips after their duration. Modals wait for
   // explicit dismissal (button click above) since they carry pointer-events.

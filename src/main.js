@@ -261,7 +261,9 @@ window.startWebEyeTrackResearcherMode = async function startWebEyeTrackResearche
 };
 
 function attachInterventionClassifier(gazeManager) {
-  if (CONFIG.INTERVENTION_CONDITION === 'no_help') return;
+  // Only attach live classifier for system_initiated condition
+  // For user_initiated, the classifier is only called when user clicks the button
+  if (CONFIG.INTERVENTION_CONDITION !== 'system_initiated') return;
 
   const liveClassifier = createLiveConfusionClassifier({
     onFire: (payload) => onConfusionFired(payload),

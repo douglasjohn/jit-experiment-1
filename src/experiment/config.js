@@ -42,7 +42,7 @@ export const CONFIG = {
    *
    * Example: 'https://app.prolific.com/submissions/complete?cc=XXXXXXXX'
    */
-  PROLIFIC_COMPLETION_URL: 'https://app.prolific.com/submissions/complete?cc=C730U3UO',
+  PROLIFIC_COMPLETION_URL: 'https://app.prolific.com/submissions/complete?cc=CYDN42ED',
 
   /**
    * Server endpoint that receives the JSON data payload via HTTP POST.
@@ -125,7 +125,7 @@ export const CONFIG = {
    * Can also be overridden per-deployment via URL param for piloting:
    * ?condition=static_help
    */
-  INTERVENTION_CONDITION: params.get('condition') || 'static_help',
+  INTERVENTION_CONDITION: params.get('condition') || 'user_initiated',
 
   // ── STUDY MODE ────────────────────────────────────────────────────────────
 

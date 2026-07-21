@@ -309,7 +309,7 @@ setAoiHelp('broken-nav', {
   'nav-menu': ['Look at the <strong>footer navigation</strong> options.', 'The returns policy is reached from the footer navigation rather than the main menu.', 'After finding the returns policy, select whether you found it in the answer panel.'],
   'shop-home': ['Look at the <strong>footer navigation</strong> options.', 'The page content is not the route to the returns policy; use the footer navigation.', 'After finding the returns policy, select whether you found it in the answer panel.'],
   'bn-help-btn': ['Look at the <strong>footer navigation</strong> options.', 'The Help button is not needed; the returns policy is in the footer navigation.', 'After finding the returns policy, select whether you found it in the answer panel.'],
-  'bn-about-link': ['Open the <strong>About</strong> menu in the footer.', 'Open the About menu in the footer to reveal the returns policy link.', 'After finding the returns policy, select whether you found it in the answer panel.'],
+  'bn-about-link': ['Open the <strong>About</strong> menu in the footer.', 'Search the webpage to find the returns policy link.', 'After finding the returns policy, select whether you found it in the answer panel.'],
   'bn-selection-panel': ['Use the <strong>answer panel</strong> after locating the returns policy.', 'Use this panel only after you have located the returns policy.', 'After finding the returns policy, select whether you found it in the answer panel.'],
 });
 

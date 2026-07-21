@@ -70,6 +70,13 @@ export const sessionData = {
   taskResponses:            [],
   probeResponses:           [],
   nasaTLX:                  null,
+  /**
+   * satisfaction — post-task rating of the JIT assistance feature itself
+   * (distinct from nasaTLX, which rates the underlying task workload).
+   * Schema: { timestamp, responses: { overall, timely, relevant } }
+   * Each response is an integer 1-7 (7-point Likert).
+   */
+  satisfaction:             null,
 
   // ── Full event log ────────────────────────────────────────────────────────
   events:                   [],

@@ -25,13 +25,24 @@ const definitions = [
 const SCALE_VALUES = Array.from({ length: 20 }, (_, index) => (index + 1) * 5);
 let ratings = [];
 
+const satisfactionItems = [
+  { id: 'overall',  prompt: 'I was satisfied with the assistance feature.' },
+  { id: 'timely',   prompt: 'The assistance was there when I needed it.' },
+  { id: 'relevant', prompt: 'The assistance was relevant to what I was trying to do.' },
+];
+const satisfactionLeft = 'Strongly Disagree';
+const satisfactionRight = 'Strongly Agree';
+let satisfactionRatings = [];
+
 export function renderNasaTlxScreen() {
   const el = document.getElementById('screen-nasatlx');
   if (!el) return;
 
   ratings = Array(scale.length).fill(null);
+  satisfactionRatings = Array(satisfactionItems.length).fill(null);
 
   const scaleHtml = scale.map((_, index) => getScaleHTML(index)).join('');
+  const satisfactionHtml = satisfactionItems.map((_, index) => getSatisfactionHTML(index)).join('');
 
   el.innerHTML = `
     <style>
@@ -56,19 +67,68 @@ export function renderNasaTlxScreen() {
       #screen-nasatlx .selected { background: #AAAAAA !important; }
       #screen-nasatlx .label-row { margin: 18px 0 12px; font-weight: 700; }
       #screen-nasatlx .description { font-size: 12px; margin: 8px 0 0; line-height: 1.4; }
+      #screen-nasatlx .likert-row { display: flex; justify-content: space-between; align-items: center; gap: 4px; margin-top: 6px; }
+      #screen-nasatlx .likert-option { display: flex; flex-direction: column; align-items: center; font: 11px 'Muli'; cursor: pointer; width: 32px; }
+      #screen-nasatlx .likert-option input { margin: 0 0 4px; cursor: pointer; }
+      #screen-nasatlx .likert-endlabel { font: 11px 'Muli'; width: 90px; }
+      #screen-nasatlx .likert-endlabel.right { text-align: right; }
     </style>
 
     <div class="panel wide">
       <h1>NASA Task Load Index</h1>
       <p class="formInstructions">Click on each scale at the point that best indicates your experience of the task.</p>
       ${scaleHtml}
+    </div>
+
+    <div class="panel wide">
+      <h1>Assistance Feature Feedback</h1>
+      <p class="formInstructions">Please address the following statements about the help/assistance feature.</p>
+      ${satisfactionHtml}
       <button id="nasatlx-submit">Submit & Continue</button>
     </div>
   `;
 
   window.scaleClick = _scaleClick;
+  window.satisfactionClick = _satisfactionClick;
   document.getElementById('nasatlx-submit').onclick = _handleSubmit;
 }
+
+function getSatisfactionHTML(index) {
+  const item = satisfactionItems[index];
+  const options = Array.from({ length: 7 }, (_, i) => i + 1).map((value) => `
+    <label class="likert-option" id="s_${index}_${value}_label">
+      <input
+        type="radio"
+        name="satisfaction_${index}"
+        id="s_${index}_${value}"
+        onchange="satisfactionClick(${index}, ${value});"
+      />
+      ${value}
+    </label>
+  `).join('');
+
+  return `
+    <div style="margin-bottom: 20px; text-align:left;">
+      <div class="label-row">${item.prompt}</div>
+      <div class="likert-row">
+        <span class="likert-endlabel">${satisfactionLeft}</span>
+        ${options}
+        <span class="likert-endlabel right">${satisfactionRight}</span>
+      </div>
+    </div>
+  `;
+}
+
+function _satisfactionClick(index, val) {
+  satisfactionRatings[index] = val;
+  for (let i = 1; i <= 7; i += 1) {
+    const label = document.getElementById(`s_${index}_${i}_label`);
+    if (label) label.classList.remove('selected');
+  }
+  const selectedLabel = document.getElementById(`s_${index}_${val}_label`);
+  if (selectedLabel) selectedLabel.classList.add('selected');
+}
+
 
 function getScaleHTML(index) {
   const topCells = SCALE_VALUES.map((value) => `
@@ -146,6 +206,14 @@ function _handleSubmit() {
     return;
   }
 
+  const missingSatisfaction = satisfactionRatings
+    .map((value, index) => (value == null ? index : null))
+    .filter((item) => item !== null);
+  if (missingSatisfaction.length > 0) {
+    alert('Please rate every assistance feature statement before continuing.');
+    return;
+  }
+
   sessionData.nasaTLX = {
     timestamp: Date.now(),
     responses: {
@@ -163,6 +231,22 @@ function _handleSubmit() {
     timestamp: Date.now(),
     responses: { ...sessionData.nasaTLX.responses },
   });
+
+  sessionData.satisfaction = {
+    timestamp: Date.now(),
+    responses: {
+      overall:  satisfactionRatings[0],
+      timely:   satisfactionRatings[1],
+      relevant: satisfactionRatings[2],
+    },
+  };
+
+  sessionData.events.push({
+    type: 'satisfaction-submit',
+    timestamp: Date.now(),
+    responses: { ...sessionData.satisfaction.responses },
+  });
+
 
   renderDebriefScreen();
   showScreen('screen-debrief');

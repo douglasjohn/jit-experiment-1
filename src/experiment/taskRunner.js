@@ -24,7 +24,8 @@ import brokenNavShopImage from '../assets/broken-nav.jpg';
 import { onConfusionFired } from '../intervention/classifier.js';
 import { CONDITIONS } from '../intervention/interventionEngine.js';
 import { createLiveConfusionClassifier } from '../intervention/liveClassifier.js';
-import { getArms, SA_LEVELS } from './interventions.js';
+import { getArms, SA_LEVELS, SA_LEVEL_FROM_NUMERIC } from './interventions.js';
+import { predictFromGaze, inferAoiType } from '../intervention/treeEnsembleClassifier.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STATIC HELP CONTENT GENERATION
@@ -127,11 +128,12 @@ function generateAoiHamburgerButton(aoiId, taskId) {
       class="aoi-help-btn" 
       data-aoi-help="${aoiId}"
       type="button"
-      style="display:block;margin:8px 0 0 auto;padding:6px 10px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:16px;color:#374151;"
+      aria-label="Help"
+      style="display:block;margin:8px 0 0 auto;width:30px;height:30px;padding:0;background:#f3f4f6;border:1px solid #d1d5db;border-radius:50%;cursor:pointer;font-size:17px;font-weight:700;color:#374151;"
       onclick="event.stopPropagation();window._openAoiHelp('${aoiId}');return false;"
       title="Click for help"
     >
-      ☰
+      ?
     </button>
   `;
 }
@@ -142,8 +144,8 @@ function generateSvgAoiHamburgerButton(aoiId, x, y) {
 
   return `<foreignObject x="${x}" y="${y}" width="30" height="30">
     <button xmlns="http://www.w3.org/1999/xhtml" class="aoi-help-btn" data-aoi-help="${aoiId}" type="button"
-      style="width:28px;height:28px;padding:0;background:#f3f4f6;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:16px;color:#374151;"
-      onclick="event.stopPropagation();window._openAoiHelp('${aoiId}');return false;" title="Click for help">☰</button>
+      style="width:28px;height:28px;padding:0;background:#f3f4f6;border:1px solid #d1d5db;border-radius:50%;cursor:pointer;font-size:17px;font-weight:700;color:#374151;"
+      onclick="event.stopPropagation();window._openAoiHelp('${aoiId}');return false;" title="Click for help">?</button>
   </foreignObject>`;
 }
 
@@ -200,7 +202,7 @@ function generateHamburgerMenu(taskId) {
 
   return `
     <div id="hamburger-container-${taskId}">
-      <button id="hamburger-btn-${taskId}" style="padding:8px 12px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:8px;cursor:pointer;font-size:18px;color:#374151;" onclick="document.getElementById('hamburger-btn-${taskId}').style.display='none';document.getElementById('close-btn-${taskId}').style.display='block';document.getElementById('static-help-popup-${taskId}').style.display='flex';return false;">☰</button>
+      <button id="hamburger-btn-${taskId}" aria-label="Help" style="width:34px;height:34px;padding:0;background:#f3f4f6;border:1px solid #d1d5db;border-radius:50%;cursor:pointer;font-size:18px;font-weight:700;color:#374151;" onclick="document.getElementById('hamburger-btn-${taskId}').style.display='none';document.getElementById('close-btn-${taskId}').style.display='block';document.getElementById('static-help-popup-${taskId}').style.display='flex';return false;">?</button>
       <button id="close-btn-${taskId}" style="display:none;padding:8px 12px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:8px;cursor:pointer;font-size:18px;color:#374151;" onclick="document.getElementById('hamburger-btn-${taskId}').style.display='block';document.getElementById('close-btn-${taskId}').style.display='none';document.getElementById('static-help-popup-${taskId}').style.display='none';return false;">✕</button>
     </div>
     ${generateStaticHelpPopup(taskId)}
@@ -371,7 +373,7 @@ export const TASK_DEFINITIONS = {
     instructions: (() => {
       const condition = CONFIG.INTERVENTION_CONDITION;
       if (condition === 'static_help') {
-        return 'Fill out the registration form completely and submit it. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰).';
+        return 'Fill out the registration form completely and submit it. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the question mark icon (?).';
       } else if (condition === 'user_initiated') {
         return 'Fill out the registration form completely and submit it. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
       } else {
@@ -464,7 +466,7 @@ export const TASK_DEFINITIONS = {
     instructions: (() => {
       const condition = CONFIG.INTERVENTION_CONDITION;
       if (condition === 'static_help') {
-        return 'Analyse the table and answer the questions below. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰).';
+        return 'Analyse the table and answer the questions below. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the question mark icon (?).';
       } else if (condition === 'user_initiated') {
         return 'Analyse the table and answer the questions below. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
       } else {
@@ -516,7 +518,7 @@ export const TASK_DEFINITIONS = {
     instructions: (() => {
       const condition = CONFIG.INTERVENTION_CONDITION;
       if (condition === 'static_help') {
-        return 'Solve the multi-step problem. Use the scratchpad to show your working. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰).';
+        return 'Solve the multi-step problem. Use the scratchpad to show your working. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the question mark icon (?).';
       } else if (condition === 'user_initiated') {
         return 'Solve the multi-step problem. Use the scratchpad to show your working. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
       } else {
@@ -571,7 +573,7 @@ export const TASK_DEFINITIONS = {
     instructions: (() => {
       const condition = CONFIG.INTERVENTION_CONDITION;
       if (condition === 'static_help') {
-        return 'Study the transit map and answer the question about the optimal route. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰).';
+        return 'Study the transit map and answer the question about the optimal route. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the question mark icon (?).';
       } else if (condition === 'user_initiated') {
         return 'Study the transit map and answer the question about the optimal route. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
       } else {
@@ -656,7 +658,7 @@ export const TASK_DEFINITIONS = {
     instructions: (() => {
       const condition = CONFIG.INTERVENTION_CONDITION;
       if (condition === 'static_help') {
-        return 'Configure the router to the following specifications: security type=WPA3, DNS=8.8.8.8, then click Save Changes. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰).';
+        return 'Configure the router to the following specifications: security type=WPA3, DNS=8.8.8.8, then click Save Changes. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the question mark icon (?).';
       } else if (condition === 'user_initiated') {
         return 'Configure the router to the following specifications: security type=WPA3, DNS=8.8.8.8, then click Save Changes. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
       } else {
@@ -725,7 +727,7 @@ export const TASK_DEFINITIONS = {
     instructions: (() => {
       const condition = CONFIG.INTERVENTION_CONDITION;
       if (condition === 'static_help') {
-        return 'Read the passage carefully, then answer all comprehension and inference questions. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the hamburger menu icon (☰).';
+        return 'Read the passage carefully, then answer all comprehension and inference questions. You may enter fake information where needed — it will not affect the outcome of the experiment. Help is available via the question mark icon (?).';
       } else if (condition === 'user_initiated') {
         return 'Read the passage carefully, then answer all comprehension and inference questions. You may enter fake information where needed — it will not affect the outcome of the experiment. If you need help, click the "I\'m confused" button at the bottom right.';
       } else {
@@ -1131,8 +1133,8 @@ export function initTaskRunner(gazeManager) {
       control.setAttribute('width', '30');
       control.setAttribute('height', '30');
       control.innerHTML = `<button xmlns="http://www.w3.org/1999/xhtml" type="button" aria-label="Help for ${aoiId}"
-        style="width:28px;height:28px;padding:0;background:#f3f4f6;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:16px;color:#374151;"
-      >☰</button>`;
+        style="width:28px;height:28px;padding:0;background:#f3f4f6;border:1px solid #d1d5db;border-radius:50%;cursor:pointer;font-size:17px;font-weight:700;color:#374151;"
+      >?</button>`;
       control.firstElementChild.onclick = event => {
         event.stopPropagation();
         window._openAoiHelp(aoiId);
@@ -1148,17 +1150,34 @@ export function initTaskRunner(gazeManager) {
     };
 
     // Expose confused button handler for user_initiated condition
-    window._handleConfusedClick = () => {
+    window._handleConfusedClick = async () => {
       const subjectId = sessionData.participantId || sessionData.PROLIFIC_PID || 'participant-1';
       
-      // Use rolling window to determine most looked-at AOI in last 2 seconds
-      const aoiId = _getMostLookedAtAoi(2000);
+      // Use the tree ensemble classifier to predict AOI and SA level from recent gaze data
+      console.log('[confused-button] Running classifier prediction...');
+      const prediction = await predictFromGaze(2000);
       
-      // Infer AOI type based on current task (more reliable than gaze data for user_initiated)
-      const aoiType = _inferAoiTypeFromTask(currentTask?.id);
-      const saLevel = _inferSaLevelFromRecentBehavior();
+      if (!prediction) {
+        console.error('[confused-button] Classifier prediction failed, using fallback');
+        // Fallback to simple heuristics if classifier fails
+        const aoiId = _getMostLookedAtAoi(2000);
+        const aoiType = _inferAoiTypeFromTask(currentTask?.id);
+        const saLevel = _inferSaLevelFromRecentBehavior();
+        
+        _triggerConfusionEvent(subjectId, aoiType, aoiId, saLevel, 'user_initiated_button_fallback', 0.5);
+        return;
+      }
       
-      // Log the button click with SA level and AOI ID
+      console.log('[confused-button] Classifier prediction:', prediction);
+      
+      // Use classifier predictions
+      const aoiId = prediction.aoiId;
+      const aoiType = inferAoiType(aoiId) || _inferAoiTypeFromTask(currentTask?.id);
+      const saLevelNumeric = prediction.saLevel;
+      const saLevel = SA_LEVEL_FROM_NUMERIC[saLevelNumeric] || saLevelNumeric;
+      const confidence = prediction.saConfidence;
+      
+      // Log the button click with classifier predictions
       sessionData.events = sessionData.events || [];
       sessionData.events.push({
         type: 'confused_button_click',
@@ -1166,31 +1185,39 @@ export function initTaskRunner(gazeManager) {
         aoi_type: aoiType,
         aoi_id: aoiId,
         sa_level: saLevel,
+        sa_level_numeric: saLevelNumeric,
+        classifier_confidence: confidence,
+        confusion_probability: prediction.confusion.probability,
+        classifier_features: prediction.features,
         timestamp: Date.now(),
       });
       
-      console.log('[confused-button] Clicked - Task:', currentTask?.id, 'AOI:', aoiId, 'Type:', aoiType, 'SA:', saLevel);
+      console.log('[confused-button] Clicked - Task:', currentTask?.id, 'AOI:', aoiId, 'Type:', aoiType, 'SA:', saLevel, 'Confidence:', confidence);
       
-      // Trigger the confusion event with taskId for intervention selection
+      // Trigger the confusion event with classifier predictions
+      _triggerConfusionEvent(subjectId, aoiType, aoiId, saLevel, 'user_initiated_button', confidence);
+    };
+    
+    function _triggerConfusionEvent(subjectId, aoiType, aoiId, saLevel, triggeringFeature, confidence) {
       onConfusionFired({
         subjectId,
         taskId: currentTask?.id || null,
         aoiType,
         aoiId,
         saLevel,
-        triggeringFeature: 'user_initiated_button',
-        confidence: 1.0,
+        triggeringFeature,
+        confidence,
       });
-    };
+    }
 
     function _getMostLookedAtAoi(windowMs) {
       const now = Date.now();
-      const gazeEvents = sessionData.gazeEvents || [];
+      const gazeLog = sessionData.gazeLog || [];
       
-      console.log('[aoi-detection] Total gaze events in session:', gazeEvents.length);
+      console.log('[aoi-detection] Total gaze events in session:', gazeLog.length);
       
       // Filter gaze events within the time window
-      const recentGaze = gazeEvents.filter(g => g.timestamp && (now - g.timestamp) <= windowMs);
+      const recentGaze = gazeLog.filter(g => g.t && (now - g.t) <= windowMs);
       
       console.log('[aoi-detection] Gaze events in last', windowMs, 'ms:', recentGaze.length);
       
@@ -1201,7 +1228,7 @@ export function initTaskRunner(gazeManager) {
       
       // Log sample of recent gaze events to debug
       console.log('[aoi-detection] Sample recent gaze events:', recentGaze.slice(0, 5).map(g => ({
-        timestamp: g.timestamp,
+        timestamp: g.t,
         aoi_id: g.aoi_id,
         x: g.x,
         y: g.y
@@ -1263,7 +1290,7 @@ export function initTaskRunner(gazeManager) {
     function _inferSaLevelFromRecentBehavior() {
       // Simple heuristic: if user clicked the button, they're likely at SA level 2 or 3
       // In a real implementation, this would use the live classifier's feature computation
-      const recentGaze = sessionData.gazeEvents?.slice(-20) || [];
+      const recentGaze = sessionData.gazeLog?.slice(-20) || [];
       const aoiIds = recentGaze.map(g => g.aoi_id).filter(Boolean);
       const uniqueAois = new Set(aoiIds);
       

@@ -94,6 +94,9 @@ function _assembleFullPayload() {
     // ── Workload ──────────────────────────────────────────────────────────────
     nasaTLX:            sessionData.nasaTLX,
 
+    // ── Assistance feature feedback ──────────────────────────────────────────
+    satisfaction:        sessionData.satisfaction,
+
     // ── Replay-friendly stimulus payload ─────────────────────────────────────
     taskStimuli:        _getTaskStimuli(),
 
@@ -174,6 +177,9 @@ function _assembleSlimPayload() {
 
     // ── Workload ──────────────────────────────────────────────────────────────
     nasaTLX:            sessionData.nasaTLX,
+
+    // ── Assistance feature feedback ──────────────────────────────────────────
+    satisfaction:        sessionData.satisfaction,
 
     // ── taskStimuli intentionally omitted (large HTML; only needed for replay)
     // The server merges it when _fetchCompiledSession() runs after a successful POST.

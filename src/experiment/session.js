@@ -20,7 +20,8 @@ export const sessionData = {
   // ── Eye-tracking state ────────────────────────────────────────────────────
   gazeInitialized:          false,
   gazeInitializationError:  null,
-// ── Calibration ───────────────────────────────────────────────────────────
+
+  // ── Calibration ───────────────────────────────────────────────────────────
   environmentCheck:         null,
   calibrationQuality:       null,
 
@@ -33,9 +34,6 @@ export const sessionData = {
    * Schema: [{attempt, startedAt, completedAt, meanError, maxError, passedGate}]
    */
   calibrationAttempts:      [],
-  // ── Calibration ───────────────────────────────────────────────────────────
-  environmentCheck:         null,
-  calibrationQuality:       null,
 
   // ── Gaze data ─────────────────────────────────────────────────────────────
   /**
@@ -78,8 +76,42 @@ export const sessionData = {
    */
   satisfaction:             null,
 
+  // ── Intervention events ─────────────────────────────────────────────────────
+  /**
+   * interventionEvents — log of all intervention decisions and outcomes
+   * Schema: [{ type, subject_id, condition, task_id, aoi_type, sa_level, arm_id, arm_family, timestamp }]
+   *
+   * Includes two upstream classifier-firing types, logged from
+   * liveClassifier.js BEFORE the intervention engine runs, so actual
+   * fires can be compared against gated attempts for an over/underfiring
+   * rate. Cooldown between auto-fires is a flat 15s for every task (no
+   * per-task scaling):
+   *   - 'classifier-fired': threshold crossed, condition is
+   *     system_initiated, and 15s had passed since the last auto-fire.
+   *   - 'classifier-wanted-to-fire': threshold crossed but gated.
+   *     gated_reason is 'user_initiated_condition' (this condition never
+   *     auto-fires -- only the button does) or 'cooldown' (system_initiated,
+   *     still within 15s of the last auto-fire). Includes the predicted
+   *     aoi_id/sa_level it would have used, same as an actual fire.
+   *     Logged once per gated episode, not every sample.
+   */
+  interventionEvents:        [],
+
+  // ── Bandit state ───────────────────────────────────────────────────────────────
+  /**
+   * banditState — Thompson sampling bandit state for personalized interventions
+   * Schema: { [subjectId]: { [saLevel]: { [armId]: { mean, variance, n } } } }
+   */
+  banditState:              null,
+
   // ── Full event log ────────────────────────────────────────────────────────
   events:                   [],
+
+  // ── Current task tracking ─────────────────────────────────────────────────────
+  currentTaskId:            null,
+
+  // ── Classifier configuration ─────────────────────────────────────────────────
+  classifierConfig:          null, // Will be populated with threshold, cooldown, etc.
 };
 
 /**

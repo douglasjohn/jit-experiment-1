@@ -9,6 +9,7 @@ import { renderDemographicsScreen } from './UI/screens/demographics';
 import { renderLoadingScreen } from './UI/screens/loading';
 import { renderEnvCheckScreen } from './UI/screens/env-check';
 import { renderCalibrationScreen } from './UI/screens/calibration';
+import { renderGazeValidationScreen } from './UI/screens/gaze-validation';
 import { renderTaskInstructionScreen } from './UI/screens/task-instruction';
 import { renderTaskScreen } from './UI/screens/task';
 import { renderProbeScreen } from './UI/screens/probe';
@@ -34,6 +35,7 @@ import { isMobileDevice } from './utils/deviceCheck';
 import { initExperiment } from './experiment/init';
 import { createLiveConfusionClassifier } from './intervention/liveClassifier';
 import { onConfusionFired, onConfusionReFired } from './intervention/classifier';
+import { preloadModelWeights } from './intervention/treeEnsembleClassifier';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GLOBAL STATE
@@ -51,6 +53,17 @@ initExperienceProbeOverlay();
 initRouter();
 
 window.addEventListener('DOMContentLoaded', () => {
+  // ─────────────────────────────────────────────────────────────────────────────
+  // NEW: Toggle Researcher Mode on the fly with Ctrl + Shift + R
+  // ─────────────────────────────────────────────────────────────────────────────
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'R') {
+      const isEnabled = localStorage.getItem('researcherMode') === 'true';
+      localStorage.setItem('researcherMode', !isEnabled);
+      alert(`Researcher Mode ${!isEnabled ? 'ENABLED' : 'DISABLED'}. Reloading...`);
+      window.location.reload();
+    }
+  });
   // Pre-render all screen placeholders so the DOM containers exist
   renderLoadingScreen();
   captureProlificParams();
@@ -60,6 +73,7 @@ window.addEventListener('DOMContentLoaded', () => {
   renderDemographicsScreen();
   renderEnvCheckScreen();
   renderCalibrationScreen();
+  renderGazeValidationScreen();
   renderTaskInstructionScreen();
   renderTaskScreen();
   renderProbeScreen();
@@ -79,7 +93,8 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   // RESEARCHER MODE: skip consent + calibration, jump straight to tasks
-  if (CONFIG.RESEARCHER_MODE) {
+  // UPDATED: Check localStorage as well as CONFIG
+  if (CONFIG.RESEARCHER_MODE || localStorage.getItem('researcherMode') === 'true') {
     console.log('🔬 RESEARCHER MODE ENABLED');
     window.startWebEyeTrackResearcherMode();
     return;
@@ -249,11 +264,15 @@ window.startWebEyeTrackResearcherMode = async function startWebEyeTrackResearche
       sessionData.gazeInitialized = false;
       sessionData.gazeInitializationError = gazeError.message;
     }
-
+    // 1. Initialize experiment state and show Calibration screen
     initExperiment();
-    window.taskRunner?.loadNextTask();
 
+    // 2. Show the Researcher Overlay immediately so you can monitor calibration
     _showResearcherOverlay(gazeManager);
+
+    if (typeof window.__jitActivateLiveClassifier === 'function') {
+      window.__jitActivateLiveClassifier();
+    }
 
   } catch (error) {
     console.error('Researcher mode init error:', error);
@@ -261,21 +280,18 @@ window.startWebEyeTrackResearcherMode = async function startWebEyeTrackResearche
 };
 
 function attachInterventionClassifier(gazeManager) {
-  // Only attach live classifier for system_initiated condition
-  // For user_initiated, the classifier is only called when user clicks the button
-  if (CONFIG.INTERVENTION_CONDITION !== 'system_initiated') return;
+  const isResearcher = CONFIG.RESEARCHER_MODE || localStorage.getItem('researcherMode') === 'true';
+
+  // Don't preload if condition ignores AI interventions (unless in Researcher Mode)
+  if (!isResearcher && (CONFIG.INTERVENTION_CONDITION === 'no_help' || CONFIG.INTERVENTION_CONDITION === 'static_help')) return;
 
   const liveClassifier = createLiveConfusionClassifier({
     onFire: (payload) => onConfusionFired(payload),
     getSubjectId: () => sessionData.participantId || sessionData.PROLIFIC_PID || 'participant-1',
   });
 
-  const unsubscribe = gazeManager.onGazeSample((payload) => {
-    if (!payload?.task_id) return;
-    liveClassifier(payload);
-  });
-
   window.__jitLiveClassifier = liveClassifier;
+
   window.__jitFireConfusion = (payload) => onConfusionFired({
     subjectId: sessionData.participantId || sessionData.PROLIFIC_PID || 'participant-1',
     aoiType: payload?.aoiType || payload?.aoi_id || 'unknown',
@@ -284,6 +300,29 @@ function attachInterventionClassifier(gazeManager) {
     confidence: payload?.confidence ?? 0.9,
     ...payload,
   });
+
+  // Deferred on purpose: fetching the ~6.9MB weights file and subscribing
+  // to the gaze stream both happen only once _activateLiveClassifier is
+  // called (from taskRunner.js, right before the FIRST task begins) --
+  // i.e. strictly after consent, calibration, and env-check, so it never
+  // competes with WebEyeTrack's own model load on the calibration path.
+  window.__jitActivateLiveClassifier = () => _activateLiveClassifier(gazeManager, liveClassifier);
+}
+
+function _activateLiveClassifier(gazeManager, liveClassifier) {
+  if (window.__jitDestroyLiveClassifier) return; // already active, no-op
+  const isResearcher = CONFIG.RESEARCHER_MODE || localStorage.getItem('researcherMode') === 'true';
+  if (!isResearcher && CONFIG.INTERVENTION_CONDITION !== 'system_initiated' &&
+      CONFIG.INTERVENTION_CONDITION !== 'user_initiated') return;
+
+  // Kick off the fetch now (off the calibration critical path) so it's
+  // warm well before the acclimation window needs a live prediction.
+  preloadModelWeights();
+
+  const unsubscribe = gazeManager.onGazeSample((payload) => {
+    if (!payload?.task_id) return;
+    liveClassifier(payload);
+  });
   window.__jitDestroyLiveClassifier = unsubscribe;
 }
 
@@ -291,41 +330,77 @@ function _showResearcherOverlay(gazeManager) {
   const overlay = document.createElement('div');
   overlay.id = 'researcher-overlay';
   overlay.style.cssText = `
-    position: fixed; top: 0; right: 0; width: 300px; height: 100vh;
-    background: rgba(0,0,0,0.95); color: #fff; padding: 16px;
-    font-family: monospace; font-size: 12px; z-index: 10000;
-    overflow-y: auto; border-left: 2px solid #4f46e5;
+    position: fixed; top: 12px; right: 12px; width: 240px; max-height: 85vh;
+    background: rgba(248, 250, 252, 0.85); backdrop-filter: blur(8px);
+    color: #0f172a; padding: 12px; border-radius: 12px;
+    font-family: monospace; font-size: 11px; z-index: 10000;
+    overflow-y: auto; border: 1px solid rgba(203, 213, 225, 0.8);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
   `;
 
   overlay.innerHTML = `
-    <div style="margin-bottom:16px;">
-      <h3 style="margin:0 0 4px; color:#4f46e5;">🔬 RESEARCHER MODE</h3>
-      <p style="margin:0; color:#9ca3af; font-size:11px;">Live monitoring panel</p>
+    <div style="margin-bottom:10px;">
+      <h3 style="margin:0 0 2px; color:#4338ca; font-size:13px;">🔬 RESEARCHER MODE</h3>
+      <p style="margin:0; color:#64748b; font-size:10px;">Live monitoring panel</p>
     </div>
 
-    <div style="margin-bottom:10px; padding:8px; background:rgba(79,70,229,0.1); border-radius:4px; border-left:2px solid #4f46e5;">
-      <div style="color:#a78bfa; font-weight:bold; margin-bottom:4px;">Current AOI</div>
-      <div id="rov-aoi" style="color:#e0e7ff;">—</div>
+    <!-- NEW: Live Classifier UI -->
+    <div style="margin-bottom:8px; padding:8px; background:rgba(254,226,226,0.6); border-radius:6px; border-left:3px solid #ef4444;">
+      <div style="color:#991b1b; font-weight:bold; margin-bottom:2px;">Live Classifier</div>
+      <div style="color:#1e293b; font-size:11px;">Conf Prob: <strong id="rov-conf-prob" style="font-size:13px; color:#16a34a;">0.0000</strong></div>
+      <div style="color:#1e293b; font-size:11px; margin-top:2px;">SA Pred: <strong id="rov-sa-level" style="color:#2563eb;">—</strong></div>
+      <div style="color:#475569; font-size:10px; margin-top:2px;">SA Probs: <span id="rov-sa-probs">Loading...</span></div>
     </div>
 
-    <div style="margin-bottom:10px; padding:8px; background:rgba(34,197,94,0.1); border-radius:4px; border-left:2px solid #22c55e;">
-      <div style="color:#86efac; font-weight:bold; margin-bottom:4px;">Last Fixation</div>
-      <div id="rov-fixation" style="color:#dcfce7;">0 ms</div>
+    <div style="margin-bottom:8px; padding:8px; background:rgba(238,242,255,0.6); border-radius:6px; border-left:3px solid #6366f1;">
+      <div style="color:#3730a3; font-weight:bold; margin-bottom:2px;">Current AOI</div>
+      <div id="rov-aoi" style="color:#1e293b;">—</div>
     </div>
 
-    <div style="margin-bottom:10px; padding:8px; background:rgba(59,130,246,0.1); border-radius:4px; border-left:2px solid #3b82f6;">
-      <div style="color:#93c5fd; font-weight:bold; margin-bottom:4px;">Gaze Manager</div>
-      <div id="rov-status" style="color:#dbeafe; font-size:11px;">Initializing...</div>
+    <div style="margin-bottom:8px; padding:8px; background:rgba(220,252,231,0.6); border-radius:6px; border-left:3px solid #22c55e;">
+      <div style="color:#166534; font-weight:bold; margin-bottom:2px;">Last Fixation</div>
+      <div id="rov-fixation" style="color:#1e293b;">0 ms</div>
     </div>
 
-    <div style="padding:8px; background:rgba(100,116,139,0.2); border-radius:4px; font-size:11px;">
-      <div style="color:#cbd5e1;">Eye tracking: <span id="rov-gaze-init" style="color:#94a3b8;">—</span></div>
-      <div style="color:#cbd5e1; margin-top:4px;">Mouse events: <span id="rov-mouse" style="color:#94a3b8;">0</span></div>
-      <div style="color:#cbd5e1; margin-top:4px;">Click events: <span id="rov-clicks" style="color:#94a3b8;">0</span></div>
+    <div style="margin-bottom:8px; padding:8px; background:rgba(219,234,254,0.6); border-radius:6px; border-left:3px solid #3b82f6;">
+      <div style="color:#1e40af; font-weight:bold; margin-bottom:2px;">Gaze Manager</div>
+      <div id="rov-status" style="color:#1e293b; font-size:11px;">Initializing...</div>
+    </div>
+
+    <div style="padding:8px; background:rgba(241,245,249,0.8); border-radius:6px; font-size:10px;">
+      <div style="color:#334155;">Eye tracking: <span id="rov-gaze-init" style="color:#64748b;">—</span></div>
+      <div style="color:#334155; margin-top:2px;">Mouse events: <span id="rov-mouse" style="color:#64748b;">0</span></div>
+      <div style="color:#334155; margin-top:2px;">Click events: <span id="rov-clicks" style="color:#64748b;">0</span></div>
     </div>
   `;
 
   document.body.appendChild(overlay);
+
+  // NEW: Attach the global updater for the live classifier
+  window.__updateResearcherHUD = (confusionProb, saLevel, saProbs) => {
+    const confEl = document.getElementById('rov-conf-prob');
+    if (confEl) {
+      const prob = Number(confusionProb || 0);
+      confEl.innerText = prob.toFixed(4);
+      confEl.style.color = prob >= 0.3804 ? '#dc2626' : '#16a34a';
+      document.getElementById('rov-sa-level').innerText = saLevel !== undefined ? saLevel : '—';
+      
+      const probsEl = document.getElementById('rov-sa-probs');
+      if (probsEl) {
+        if (!saProbs) {
+          probsEl.innerText = 'Loading...';
+        } else if (Array.isArray(saProbs) && saProbs.length > 0) {
+          probsEl.innerText = saProbs.map((p, idx) => `L${idx + 1}: ${(Number(p) * 100).toFixed(0)}%`).join(' | ');
+        } else if (typeof saProbs === 'object' && Object.keys(saProbs).length > 0) {
+          probsEl.innerText = Object.entries(saProbs)
+            .map(([k, v]) => `${k}: ${(Number(v) * 100).toFixed(0)}%`)
+            .join(' | ');
+        } else {
+          probsEl.innerText = 'None';
+          }
+      }
+    }
+  };
 
   setInterval(() => {
     const aoi    = document.getElementById('rov-aoi');

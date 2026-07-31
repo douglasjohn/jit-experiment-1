@@ -7,6 +7,7 @@ export function renderAppShell() {
     <section id="screen-demographics"></section>
     <section id="screen-env-check"></section>
     <section id="screen-calibration"></section>
+    <section id="screen-gaze-validation" style="display:none;"></section>
     <section id="screen-task-instruction"></section>
     <section id="screen-task"></section>
     <section id="screen-probe"></section>

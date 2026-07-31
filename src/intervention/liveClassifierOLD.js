@@ -20,8 +20,7 @@
 //     just invoked immediately rather than waiting for the next poll.
 
 import { sessionData } from '../experiment/session.js';
-import { predictFromGaze, getDecisionThreshold, evaluateSaClassifier } from './treeEnsembleClassifier.js';
-import { onConfusionFired } from './classifier.js';
+import { predictFromGaze, getDecisionThreshold } from './treeEnsembleClassifier.js';
 import { SA_LEVEL_FROM_NUMERIC, SA_LEVELS } from '../experiment/interventions.js';
 import { CONFIG } from '../experiment/config.js';
 import { CONDITIONS } from './interventionEngine.js';
@@ -31,8 +30,7 @@ import { CONDITIONS } from './interventionEngine.js';
 // classifier) is meaningfully more expensive than the old heuristic was --
 // state.pending below guarantees we never let two predictFromGaze calls
 // overlap, regardless of how fast gaze samples arrive.
-// This should match the step_ms from the trained model (500ms)
-const SAMPLE_INTERVAL_MS = 500;
+const SAMPLE_INTERVAL_MS = 250;
 
 // Window length is no longer hardcoded here — predictFromGaze() now reads
 // the model's own weights.gaze_processing.window_ms so the background poll
@@ -44,25 +42,22 @@ const SAMPLE_INTERVAL_MS = 500;
 // slightly long. This only gates AUTO-firing (system_initiated); it isn't
 // what limits user-initiated button clicks.
 const COOLDOWN_MS = 15000;
-const CONSECUTIVE_WINDOWS_TO_FIRE = 1;
+const CONSECUTIVE_WINDOWS_TO_FIRE = 3;
 
-// --- STATIC THRESHOLD LOGIC ---
+// Get dynamic threshold from model weights (computed during 15s acclimation)
+// Fallback to 0.75 if dynamic threshold not available
 function getCurrentThreshold() {
-  const threshold = getDecisionThreshold();
-  // If threshold is > 1, it's stored as percentage, so divide by 100
-  // If threshold is <= 1, it's already a probability
-  const result = threshold > 1 ? threshold / 100 : threshold;
-  console.log('[Threshold] Using static threshold from weights:', result);
-  return result;
+  return getDecisionThreshold() / 100; // Convert from percentage to probability
 }
 
 // Store classifier configuration in session data for logging
+// Note: threshold will be updated dynamically during execution
 sessionData.classifierConfig = {
   get threshold() { return getCurrentThreshold(); },
   consecutive_windows_to_fire: CONSECUTIVE_WINDOWS_TO_FIRE,
   cooldown_ms: COOLDOWN_MS,
   sample_interval_ms: SAMPLE_INTERVAL_MS,
-  threshold_source: 'static_from_weights',
+  threshold_source: 'dynamic_acclimation',
 };
 
 // Logs to interventionEvents (alongside intervention-decision/outcome
@@ -108,6 +103,22 @@ function triggeringFeatureFromModel(features) {
   return 'fixation_rate';
 }
 
+const FALLBACK_DECISION_THRESHOLD = 0.72161939301; 
+const ACCLIMATION_PERIOD_MS = 15000;
+
+// State variables to track per-task acclimation
+let currentTaskId = null;
+let taskStartTime = null;
+let acclimationScores = [];
+let dynamicThreshold = null;
+
+function getPercentile(arr, percentile) {
+  if (arr.length === 0) return FALLBACK_DECISION_THRESHOLD;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const index = Math.floor(sorted.length * percentile);
+  return sorted[index];
+}
+
 export function createLiveConfusionClassifier({ onFire, getSubjectId }) {
   const state = {
     lastPollAt: 0,
@@ -116,7 +127,6 @@ export function createLiveConfusionClassifier({ onFire, getSubjectId }) {
     lastWantedFiredAt: 0,
     consecutiveWindows: 0,
     taskStartTime: 0,
-    currentTaskId: null,
   };
 
   return function handleSample(payload) {
@@ -133,7 +143,6 @@ export function createLiveConfusionClassifier({ onFire, getSubjectId }) {
       state.currentTaskId = taskId;
       state.taskStartTime = now;
       state.consecutiveWindows = 0;
-      sessionData.classifierConfig.threshold_source = 'static_from_weights';
     }
 
     state.lastPollAt = now;
@@ -144,35 +153,11 @@ export function createLiveConfusionClassifier({ onFire, getSubjectId }) {
         state.pending = false;
         if (!prediction) return;
 
-        const probability = prediction.confusion.probability;
-        const timeSinceTaskStart = now - state.taskStartTime;
-
-        // Safe fallback: use baseFeaturesForSa if available, else standard features
-        const saFeatures = prediction.baseFeaturesForSa || prediction.features || prediction;
-        const saPrediction = typeof evaluateSaClassifier === 'function' ? evaluateSaClassifier(saFeatures) : null;
-        const currentSaLevel = saPrediction ? (SA_LEVEL_FROM_NUMERIC[saPrediction.numeric] || SA_LEVELS.COMPREHENSION) : '—';
-        const currentSaProbs = saPrediction ? saPrediction.probabilities : [];
-
-        // ─────────────────────────────────────────────────────────────────────────────
-        // UPDATE RESEARCHER HUD IMMEDIATELY (Before 15s Warmup Guard)
-        // ─────────────────────────────────────────────────────────────────────────────
-        if (typeof window.__updateResearcherHUD === 'function') {
-          window.__updateResearcherHUD(probability, currentSaLevel, currentSaProbs);
-        }
-
-        // ⏱️ Warmup: Block firing for first 15 seconds of task
-        if (timeSinceTaskStart < 15000) {
-          return; // Not enough time elapsed since task start, do not evaluate firing
-        }
-
-        // Evaluate confusion using the static threshold from weights
-        const activeThreshold = getCurrentThreshold();
-        const aboveThreshold = probability >= activeThreshold;
+        const aboveThreshold = prediction.confusion.isConfused;
 
         // ✅ FIX 2: Use console.log so DevTools does not filter it out
         // console.log('[LiveClassifier Poll]', {
-        //   prob: probability.toFixed(3),
-        //   thresholdUsed: activeThreshold.toFixed(3),
+        //   prob: prediction.confusion.probability.toFixed(3),
         //   aboveThreshold,
         //   streak: state.consecutiveWindows,
         //   secondsSinceLastWanted: Math.round((now - state.lastWantedFiredAt) / 1000) + 's',
@@ -181,6 +166,12 @@ export function createLiveConfusionClassifier({ onFire, getSubjectId }) {
         if (!aboveThreshold) {
           state.consecutiveWindows = 0;
           return;
+        }
+
+        // Enforce 15-second delay from task start before classifier can fire
+        const timeSinceTaskStart = now - state.taskStartTime;
+        if (timeSinceTaskStart < 15000) {
+          return; // Not enough time elapsed since task start
         }
 
         state.consecutiveWindows += 1;
@@ -192,32 +183,26 @@ export function createLiveConfusionClassifier({ onFire, getSubjectId }) {
         const aoiId = prediction.aoiId || payload?.aoi_id || null;
         const aoiType = inferAoiType(aoiId);
         const triggeringFeature = triggeringFeatureFromModel(prediction.features);
-        const confidence = Math.round(probability * 100) / 100;
+        const confidence = Math.round(prediction.confusion.probability * 100) / 100;
+
+        const saLevel = prediction.saLevel.source === 'trained_model'
+          ? SA_LEVEL_FROM_NUMERIC[prediction.saLevel.numeric]
+          : SA_LEVELS.COMPREHENSION;
+        const saLevelSource = prediction.saLevel.source;
+
+        // Get current threshold (dynamic from acclimation or fallback)
+        const currentThreshold = getCurrentThreshold();
 
         const canAutoFire = CONFIG.INTERVENTION_CONDITION === CONDITIONS.SYSTEM_INITIATED;
-        let saLevel = SA_LEVELS.COMPREHENSION;
-        let saLevelSource = 'fallback';
-        let saProbabilities = null;
 
         // ⏱️ 15-second Cooldown Checks
         const cooledDown = now - state.lastFiredAt >= COOLDOWN_MS;
         const wantedCooledDown = now - state.lastWantedFiredAt >= COOLDOWN_MS;
 
-        // Determine correct source label to write to logs
-        const finalThresholdSource = sessionData.classifierConfig.threshold_source;
-
         if (canAutoFire && cooledDown) {
-          const saPrediction = evaluateSaClassifier(prediction.baseFeaturesForSa);
-          if (saPrediction) {
-            saLevel = SA_LEVEL_FROM_NUMERIC[saPrediction.numeric] || SA_LEVELS.COMPREHENSION;
-            saLevelSource = saPrediction.source;
-            saProbabilities = saPrediction.probabilities;
-          }
           state.lastFiredAt = now;
           state.lastWantedFiredAt = now;
           state.consecutiveWindows = 0;
-
-          console.log(`[Classifier Fire] AOI: ${aoiId} | Prob: ${confidence.toFixed(3)} | SA Probabilities:`, saProbabilities);
 
           logClassifierFiringEvent({
             type: 'classifier-fired',
@@ -226,34 +211,25 @@ export function createLiveConfusionClassifier({ onFire, getSubjectId }) {
             aoi_id: aoiId,
             sa_level: saLevel,
             sa_level_source: saLevelSource,
-            sa_probabilities: saProbabilities,
             triggering_feature: triggeringFeature,
             confusion_probability: confidence,
-            threshold_used: activeThreshold,
+            threshold_used: currentThreshold,
             consecutive_windows: CONSECUTIVE_WINDOWS_TO_FIRE,
             time_since_task_start_ms: timeSinceTaskStart,
             condition: CONFIG.INTERVENTION_CONDITION,
             cooldown_ms: COOLDOWN_MS,
-            threshold_source: finalThresholdSource,
+            threshold_source: prediction.saLevel.source === 'warming_up' ? 'fallback' : 'dynamic_acclimation',
           });
 
-          onConfusionFired({
+          onFire?.({
             subjectId, taskId, aoiType, aoiId, saLevel, saLevelSource,
-            triggeringFeature, confidence, saProbabilities,
+            triggeringFeature, confidence,
           });
         } else if (wantedCooledDown) {
-          const saPrediction = evaluateSaClassifier(prediction.baseFeaturesForSa);
-          if (saPrediction) {
-            saLevel = SA_LEVEL_FROM_NUMERIC[saPrediction.numeric] || SA_LEVELS.COMPREHENSION;
-            saLevelSource = saPrediction.source;
-            saProbabilities = saPrediction.probabilities;
-          }
           // ✅ FIX 3: Re-arm after COOLDOWN_MS (15s) even during continuous confusion
           state.lastWantedFiredAt = now;
           state.consecutiveWindows = 0;
           const gatedReason = !canAutoFire ? 'user_initiated_condition' : 'cooldown';
-
-          console.log(`[Classifier Wanted to Fire] AOI: ${aoiId} | Prob: ${confidence.toFixed(3)} | SA Probabilities:`, saProbabilities);
 
           logClassifierFiringEvent({
             type: 'classifier-wanted-to-fire',
@@ -262,17 +238,16 @@ export function createLiveConfusionClassifier({ onFire, getSubjectId }) {
             aoi_id: aoiId,
             sa_level: saLevel,
             sa_level_source: saLevelSource,
-            sa_probabilities: saProbabilities,
             triggering_feature: triggeringFeature,
             confusion_probability: confidence,
-            threshold_used: activeThreshold,
+            threshold_used: currentThreshold,
             consecutive_windows: CONSECUTIVE_WINDOWS_TO_FIRE,
             time_since_task_start_ms: timeSinceTaskStart,
             condition: CONFIG.INTERVENTION_CONDITION,
             cooldown_ms: COOLDOWN_MS,
             gated_reason: gatedReason,
             time_since_last_fire_ms: now - state.lastFiredAt,
-            threshold_source: finalThresholdSource,
+            threshold_source: prediction.saLevel.source === 'warming_up' ? 'fallback' : 'dynamic_acclimation',
           });
         }
       })

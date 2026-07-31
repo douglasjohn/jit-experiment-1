@@ -12,7 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { CONFIG } from '../experiment/config.js';
-import { getArms, getStaticArm } from '../experiment/interventions.js';
+import { getArms, getStaticArm, SA_LEVELS } from '../experiment/interventions.js';
 import { sessionData } from '../experiment/session.js';
 
 export const CONDITIONS = {
@@ -87,10 +87,6 @@ export async function refreshPopulationPrior() {
   }
 }
 
-function getPrior(saLevel, armId) {
-  return POPULATION_PRIOR?.[saLevel]?.[armId] ?? DEFAULT_PRIOR;
-}
-
 // In-memory per-subject state for this session. Not persisted beyond the
 // session on purpose — see design note in the message accompanying this
 // file about cold-start-per-subject.
@@ -139,6 +135,161 @@ export function selectPersonalizedArm(subjectId, taskId, saLevel, aoiId = null) 
   return best;
 }
 
+/**
+ * Serializes this subject's learned bandit state — both the content-arm
+ * bandit (system_initiated) and the SA-level second-opinion bandit
+ * (user_initiated) — for saving with session data. Aggregating many
+ * subjects' exports offline/server-side is what produces the
+ * POPULATION_PRIOR consumed by refreshPopulationPrior() on future runs.
+ */
+export function exportBanditState(subjectId) {
+  const state = subjectState[subjectId];
+  if (!state) return {};
+  return JSON.parse(JSON.stringify(state)); // defensive clone
+}
+
+
+// ──────────────────────────────────────────────────────────────────────────
+// SA-LEVEL SECOND OPINION (user_initiated only)
+// A separate, disjoint bandit namespace from the content-arm bandit above:
+// three "arms" corresponding to the SA levels themselves, keyed PER TASK
+// (bucket = "__sa_level_selector__:<taskId>") so the empirical base-rate
+// prior below can be task-specific, and so learning on one task's SA
+// distribution doesn't bleed into another's.
+// ──────────────────────────────────────────────────────────────────────────
+const SA_LEVEL_SELECTOR_BUCKET = '__sa_level_selector__';
+const SA_LEVEL_CANDIDATES = [SA_LEVELS.PERCEPTION, SA_LEVELS.COMPREHENSION, SA_LEVELS.PROJECTION];
+// Classifier trust decays as this subject/task bucket accumulates real
+// outcomes. At n=0 (first click ever on this task for this subject) the
+// classifier's vote can be up to CLASSIFIER_VOTE_WEIGHT_MAX — large enough
+// to override the task-level cold-start prior on its own. As n grows the
+// weight relaxes toward CLASSIFIER_VOTE_WEIGHT_FLOOR, so the bandit's own
+// learned, subject-specific evidence gets to matter once there's enough
+// of it. HALF_LIFE_N is the n at which the weight has decayed halfway
+// from max to floor — tune once you see how fast bandit means move in
+// pilot data.
+const CLASSIFIER_VOTE_WEIGHT_MAX = 3.0;
+const CLASSIFIER_VOTE_WEIGHT_FLOOR = 0.4;
+const CLASSIFIER_VOTE_HALF_LIFE_N = 4;
+
+function classifierVoteWeight(totalObservations) {
+  const decay = CLASSIFIER_VOTE_HALF_LIFE_N / (CLASSIFIER_VOTE_HALF_LIFE_N + totalObservations);
+  return CLASSIFIER_VOTE_WEIGHT_FLOOR + (CLASSIFIER_VOTE_WEIGHT_MAX - CLASSIFIER_VOTE_WEIGHT_FLOOR) * decay;
+}
+// ──────────────────────────────────────────────────────────────────────────
+// Empirical (taskId -> saLevel counts) from prior static_help / pilot runs.
+// Used ONLY to seed the SA-level bandit's cold-start prior — this is a
+// base-rate prior (Bayesian sense), distinct from CLASSIFIER_VOTE_WEIGHT,
+// which is about how much to trust the live per-click classifier signal
+// relative to the bandit's learned signal (a separate calibration
+// question — see notes on that below). Overridden automatically by
+// POPULATION_PRIOR once the server starts serving real aggregated
+// posteriors (see getPrior).
+// ──────────────────────────────────────────────────────────────────────────
+const TASK_SA_LEVEL_PILOT_COUNTS = {
+  'ambiguous-form':        { 1: 109, 2: 464,  3: 0 },
+  'broken-nav':            { 1: 76,  2: 35,   3: 133 },
+  'data-table':            { 1: 0,   2: 140,  3: 93 },
+  'instruction-following': { 1: 111, 2: 58,   3: 0 },
+  'math-problem':          { 1: 110, 2: 418,  3: 145 },
+  'reading-inference':     { 1: 551, 2: 1149, 3: 142 },
+  'visual-search':         { 1: 153, 2: 526,  3: 88 },
+};
+
+// Lower variance = the prior is trusted more strongly, so it takes more
+// of this subject's own click outcomes to move the estimate away from the
+// population base rate. 0.5 is a starting point (tighter than the flat
+// uninformative default of 1) — tune once you have outcome data to see
+// how fast in-session evidence should actually override it.
+const TASK_PRIOR_VARIANCE = 0.5;
+
+function computeTaskSaLevelPrior(taskId) {
+  const counts = TASK_SA_LEVEL_PILOT_COUNTS[taskId];
+  if (!counts) return null;
+  const total = counts[1] + counts[2] + counts[3];
+  if (total === 0) return null;
+  const prior = {};
+  SA_LEVEL_CANDIDATES.forEach((level, i) => {
+    const share = counts[i + 1] / total;
+    // Center at 0 for a uniform 1/3 share; a dominant class (e.g. 81%)
+    // lands at a clearly-preferred positive mean, a near-zero class lands
+    // clearly negative. Scale factor (3) is a starting point, not derived.
+    prior[level] = { mean: (share - 1 / 3) * 3, variance: TASK_PRIOR_VARIANCE };
+  });
+  return prior;
+}
+
+function getPrior(saLevel, armId) {
+  const fromPopulation = POPULATION_PRIOR?.[saLevel]?.[armId];
+  if (fromPopulation) return fromPopulation;
+
+  // SA-level second-opinion buckets carry a task-specific empirical prior
+  // until the server starts serving a real aggregated one.
+  if (typeof saLevel === 'string' && saLevel.startsWith(SA_LEVEL_SELECTOR_BUCKET)) {
+    const taskId = saLevel.slice(SA_LEVEL_SELECTOR_BUCKET.length + 1);
+    const taskPrior = computeTaskSaLevelPrior(taskId);
+    if (taskPrior?.[armId]) return taskPrior[armId];
+  }
+
+  return DEFAULT_PRIOR;
+}
+
+/**
+ * Blends the live classifier's SA-level guess (from the confused button's
+ * gaze/mouse features) with a per-subject learned preference over SA
+ * levels. Returns the level to actually use, plus diagnostics for logging.
+ *
+ * If CONFIG.USER_INITIATED_BANDIT_ENABLED is false, this is a pass-through
+ * — the classifier's guess is returned unchanged and no bandit state is
+ * touched, so user_initiated behaves as "static-help mentality (I'll ask)
+ * + targeted classifier, no learning."
+ */
+export function selectSaLevelSecondOpinion(subjectId, taskId, classifierSaLevel, classifierConfidence = 0.5) {
+  if (!CONFIG.USER_INITIATED_BANDIT_ENABLED) {
+    return { saLevel: classifierSaLevel, usedBandit: false, votes: null };
+  }
+
+  const bucket = `${SA_LEVEL_SELECTOR_BUCKET}:${taskId}`;
+  // First pass: pull each candidate's state so we know how much evidence
+  // this bucket actually has before deciding how much to trust the
+  // classifier this time.
+  const states = {};
+  let totalObservations = 0;
+  for (const candidate of SA_LEVEL_CANDIDATES) {
+    const state = getArmState(subjectId, bucket, candidate);
+    states[candidate] = state;
+    totalObservations += state.n;
+  }
+
+  const voteWeight = classifierVoteWeight(totalObservations);
+  const classifierVote = (classifierConfidence - 0.5) * 2 * voteWeight;
+
+  let best = classifierSaLevel;
+  let bestScore = -Infinity;
+  const votes = {};
+
+  for (const candidate of SA_LEVEL_CANDIDATES) {
+    const state = states[candidate];
+    const banditSample = thompsonSample(state);
+    const score = banditSample + (candidate === classifierSaLevel ? classifierVote : 0);
+    votes[candidate] = { banditSample, score, priorMean: state.mean };
+    if (score > bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
+  }
+
+  return { saLevel: best, usedBandit: true, votes, bucket, classifierVoteWeight: voteWeight, totalObservations };
+}
+
+/** Feed the outcome of a user_initiated intervention back into the
+ * SA-level bandit. No-op if the bandit is disabled via config. */
+export function recordSaLevelOutcome(subjectId, taskId, chosenSaLevel, reward) {
+  if (!CONFIG.USER_INITIATED_BANDIT_ENABLED) return;
+  const bucket = `${SA_LEVEL_SELECTOR_BUCKET}:${taskId}`;
+  recordReward(subjectId, bucket, chosenSaLevel, reward);
+}
+
 /** Online Bayesian update (known-variance-ish approximation via simple
  * running mean/variance shrinkage — adequate for a proof of concept;
  * revisit with a proper conjugate update once you have real variance
@@ -169,10 +320,40 @@ export function handleConfusionEvent(event, condition) {
   }
 
   let arm = null;
+  let selectedAoiId = event.aoiId;
+  
   if (condition === CONDITIONS.STATIC_HELP) {
     arm = getStaticArm(event.taskId, event.saLevel, event.aoiId);
   } else if (condition === CONDITIONS.USER_INITIATED || condition === CONDITIONS.SYSTEM_INITIATED) {
-    arm = selectPersonalizedArm(event.subjectId, event.taskId, event.saLevel, event.aoiId);
+    const arms = getArms(event.taskId, event.saLevel, event.aoiId);
+    const isAoiSpecific = arms.length > 0 && arms[0].armId.startsWith('sa-');
+    
+    if (isAoiSpecific) {
+      // Both user_initiated and system_initiated pick among AOI-specific
+      // candidate variants via the bandit. user_initiated relies on the
+      // classifier's live confidence to pick saLevel/aoiId (i.e. "did the
+      // user ask AND does the model agree something is wrong here"), then
+      // hands the *which wording* decision to the same bandit machinery
+      // system_initiated uses, so both conditions learn from the same
+      // per-subject posterior.
+      if (condition === CONDITIONS.USER_INITIATED) {
+        // The bandit already had its say upstream, on WHICH SA level to
+        // use (selectSaLevelSecondOpinion, called from taskRunner.js
+        // before this event was fired). Content within a level is fixed —
+        // identical to static_help — so take it directly.
+        arm = arms[0];
+        if (arm.randomAoiSelection) {
+          selectedAoiId = arm.selectedAoiId;
+        }
+      } else {
+        arm = selectPersonalizedArm(event.subjectId, event.taskId, event.saLevel, event.aoiId);
+        if (arm && arm.randomAoiSelection) {
+          selectedAoiId = arm.selectedAoiId;
+        }
+      }
+    } else {
+      arm = selectPersonalizedArm(event.subjectId, event.taskId, event.saLevel, event.aoiId);
+    }
   }
   // CONDITIONS.NO_HELP -> arm stays null, nothing rendered.
 
@@ -184,7 +365,7 @@ export function handleConfusionEvent(event, condition) {
     arm,
     taskId: event.taskId,
     aoiType: event.aoiType || null,
-    aoiId: event.aoiId || null,
+    aoiId: selectedAoiId || null, // Use the selected AOI ID (may be randomly chosen)
     saLevel: event.saLevel,
     triggeringFeature: event.triggeringFeature ?? null,
     timestamp: event.timestamp ?? Date.now(),
@@ -193,9 +374,9 @@ export function handleConfusionEvent(event, condition) {
   sessionData.interventionEvents = sessionData.interventionEvents || [];
   sessionData.interventionEvents.push({
     type: 'intervention-decision-engine',
-    subject_id: event.subjectId,
     condition,
     task_id: event.taskId,
+    aoi_id: selectedAoiId || null,
     aoi_type: event.aoiType || null,
     sa_level: event.saLevel,
     arm_id: arm ? arm.armId : null,
@@ -245,19 +426,33 @@ function filterContextuallyInappropriateArms(arm, event) {
  * caller so it doesn't need to branch on condition itself.
  */
 export function reportOutcome(event, decision, { confusionResolved, cognitiveLoadDelta }) {
-  if (decision.condition !== CONDITIONS.PERSONALIZED_HELP || !decision.arm) return;
+  if (!decision.arm) return;
+  // Both interactive conditions learn. static_help/no_help never reach here
+  // (classifier.js only opens a pending-outcome window for these two).
+  if (decision.condition !== CONDITIONS.SYSTEM_INITIATED && decision.condition !== CONDITIONS.USER_INITIATED) return;
+
   const reward = computeReward({ confusionResolved, cognitiveLoadDelta });
-  recordReward(event.subjectId, event.saLevel, decision.arm.armId, reward);
+  if (decision.condition === CONDITIONS.USER_INITIATED) {
+    // Feed the SA-level bandit, not a content-arm bandit — content within
+    // a level never varies for user_initiated.
+    recordSaLevelOutcome(event.subjectId, event.taskId, event.saLevel, reward);
+  } else {
+    recordReward(event.subjectId, event.saLevel, decision.arm.armId, reward);
+  }
 
   sessionData.interventionEvents = sessionData.interventionEvents || [];
   sessionData.interventionEvents.push({
-    type: 'intervention-decision-engine',
-    subject_id: event.subjectId,
-    condition,
+    type: 'intervention-outcome-engine',
+    condition: decision.condition,
+    task_id: event.taskId,
+    aoi_id: decision.aoiId || null,
     aoi_type: event.aoiType,
     sa_level: event.saLevel,
-    arm_id: arm ? arm.armId : null,
-    arm_family: arm ? arm.family : null,
-    timestamp: decision.timestamp,
+    arm_id: decision.arm.armId,
+    arm_family: decision.arm.family,
+    reward,
+    confusion_resolved: confusionResolved,
+    cognitive_load_delta: cognitiveLoadDelta,
+    timestamp: Date.now(),
   });
 }

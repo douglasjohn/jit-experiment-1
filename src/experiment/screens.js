@@ -6,6 +6,7 @@ export const screens = [
   'screen-demographics',
   'screen-env-check',
   'screen-calibration',
+  'screen-gaze-validation',
   'screen-task-instruction',
   'screen-task',
   'screen-probe',

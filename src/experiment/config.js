@@ -42,7 +42,7 @@ export const CONFIG = {
    *
    * Example: 'https://app.prolific.com/submissions/complete?cc=XXXXXXXX'
    */
-  PROLIFIC_COMPLETION_URL: 'https://app.prolific.com/submissions/complete?cc=CYDN42ED',
+  PROLIFIC_COMPLETION_URL: 'https://app.prolific.com/submissions/complete?cc=CTH4B1B6',
 
   /**
    * Server endpoint that receives the JSON data payload via HTTP POST.
@@ -52,6 +52,8 @@ export const CONFIG = {
    * Example: 'https://your-server.com/api/submit'
    */
   DATA_ENDPOINT: '/save-jit',
+
+  GAZE_VALIDATION_ENABLED: false, // WebEyeTrack vs GazePoint 9-point comparison screen
 
   // ── TASK SETTINGS ─────────────────────────────────────────────────────────
 
@@ -125,7 +127,27 @@ export const CONFIG = {
    * Can also be overridden per-deployment via URL param for piloting:
    * ?condition=static_help
    */
-  INTERVENTION_CONDITION: params.get('condition') || 'user_initiated',
+  INTERVENTION_CONDITION: params.get('condition') || 'system_initiated',
+
+  SYSTEM_COOLDOWN_MS: 15000,
+
+  /**
+   * USER_INITIATED_BANDIT_ENABLED: when true, user_initiated blends the
+   * live classifier's SA-level guess with a per-subject Thompson-sampled
+   * "second opinion" learned from past intervention outcomes for this
+   * subject (see selectSaLevelSecondOpinion in interventionEngine.js).
+   * Intervention CONTENT is never chosen by the bandit — only which SA
+   * level's (single, fixed) content to show.
+   *
+   * When false, user_initiated uses ONLY the classifier's guess — no
+   * learning, no second opinion — which is the fairer comparison point
+   * against system_initiated (which has no bandit at all). Set to false
+   * for that comparison; leave true to test whether the secondary opinion
+   * helps.
+   *
+   * Override per-deployment: ?bandit=false
+   */
+  USER_INITIATED_BANDIT_ENABLED: params.get('bandit') === 'true',
 
   // ── STUDY MODE ────────────────────────────────────────────────────────────
 

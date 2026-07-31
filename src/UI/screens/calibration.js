@@ -8,6 +8,9 @@ import { renderNasaTlxScreen } from './nasatlx';
 import { renderDebriefScreen } from './debrief';
 import { sessionData } from '../../experiment/session';
 import { setSessionPhase, sendCheckpoint } from '../../experiment/checkpoint';
+import { showGazeValidationIfEnabled } from './gaze-validation';
+import { CONFIG } from '../../experiment/config';
+import { renderGazeValidationScreen } from './gaze-validation';
 
 export function renderCalibrationScreen() {
   const el = document.getElementById('screen-calibration');
@@ -20,13 +23,14 @@ export function renderCalibrationScreen() {
         <div style="text-align: left; margin: 0 auto; max-width: 560px;">
           <p>Before starting calibration, follow these steps:</p>
           <ul style="text-align: left; margin: 0; padding-left: 20px;">
+            <li>Wait until the fixation counter begins increasing before starting calibration.</li>
             <li>Use the screen that the webcam is housed in, or the external webcam is mounted on.</li>
             <li>Sit about an arm’s length from the screen and make sure your face is clearly visible.</li>
             <li>Keep your head as still as possible and follow the red dot using only your eyes.</li>
             <li>You may find it helpful to move your mouse cursor along with the red dot.</li>
             <li>You might find better performance if you have less tabs open.</li>
-            <li>Wait until the fixation counter begins increasing before starting calibration.</li>
             <li>If the counter does not increase, adjust your position or webcam view and try again.</li>
+            <li><strong>Only take a maximum of 3 calibration attempts.</strong></li>
           </ul>
         </div>
       </div>
@@ -177,6 +181,11 @@ export function renderCalibrationScreen() {
   };
 
   continueBtn.onclick = () => {
+    if (CONFIG.GAZE_VALIDATION_ENABLED) {
+      showScreen('screen-gaze-validation');
+      renderGazeValidationScreen();
+      return;
+    }
     if (window.taskRunner?.loadNextTask) {
       window.taskRunner.loadNextTask();
       return;

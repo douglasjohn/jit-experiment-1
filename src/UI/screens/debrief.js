@@ -60,6 +60,15 @@ function _assembleFullPayload() {
       session_id:   sessionData.SESSION_ID,
     },
 
+    // ── Configuration ──────────────────────────────────────────────────────────
+    config: {
+      intervention_condition: CONFIG.INTERVENTION_CONDITION,
+      auto_advance_enabled: CONFIG.AUTO_ADVANCE_ENABLED,
+      pilot_mode: CONFIG.PILOT_MODE,
+      study_mode: CONFIG.STUDY_MODE,
+      user_initiated_bandit_enabled: CONFIG.USER_INITIATED_BANDIT_ENABLED,
+    },
+
     // ── Timing ───────────────────────────────────────────────────────────────
     timestamps: {
       startTime:       sessionData.startTime,
@@ -97,11 +106,28 @@ function _assembleFullPayload() {
     // ── Assistance feature feedback ──────────────────────────────────────────
     satisfaction:        sessionData.satisfaction,
 
+    // ── Bandit state ─────────────────────────────────────────────────────────────
+    banditState:         sessionData.banditState,
+
+    // ── Classifier configuration ─────────────────────────────────────────────────────
+    classifierConfig:    sessionData.classifierConfig ? {
+      threshold: typeof sessionData.classifierConfig.threshold === 'function' 
+        ? sessionData.classifierConfig.threshold() 
+        : sessionData.classifierConfig.threshold,
+      consecutive_windows_to_fire: sessionData.classifierConfig.consecutive_windows_to_fire,
+      cooldown_ms: sessionData.classifierConfig.cooldown_ms,
+      sample_interval_ms: sessionData.classifierConfig.sample_interval_ms,
+      threshold_source: sessionData.classifierConfig.threshold_source,
+    } : null,
+
     // ── Replay-friendly stimulus payload ─────────────────────────────────────
     taskStimuli:        _getTaskStimuli(),
 
     // ── Full event log ────────────────────────────────────────────────────────
     events:             sessionData.events,
+
+    // ── Intervention events ─────────────────────────────────────────────────────
+    interventionEvents: sessionData.interventionEvents,
   };
 }
 
@@ -142,6 +168,15 @@ function _assembleSlimPayload() {
       session_id:   sessionData.SESSION_ID,
     },
 
+    // ── Configuration ──────────────────────────────────────────────────────────
+    config: {
+      intervention_condition: CONFIG.INTERVENTION_CONDITION,
+      auto_advance_enabled: CONFIG.AUTO_ADVANCE_ENABLED,
+      pilot_mode: CONFIG.PILOT_MODE,
+      study_mode: CONFIG.STUDY_MODE,
+      user_initiated_bandit_enabled: CONFIG.USER_INITIATED_BANDIT_ENABLED,
+    },
+
     // ── Timing ───────────────────────────────────────────────────────────────
     timestamps: {
       startTime:       sessionData.startTime,
@@ -180,6 +215,26 @@ function _assembleSlimPayload() {
 
     // ── Assistance feature feedback ──────────────────────────────────────────
     satisfaction:        sessionData.satisfaction,
+
+    // ── Bandit state ─────────────────────────────────────────────────────────────
+    banditState:         sessionData.banditState,
+
+    // ── Classifier configuration ─────────────────────────────────────────────────────
+    classifierConfig:    sessionData.classifierConfig ? {
+      threshold: typeof sessionData.classifierConfig.threshold === 'function'
+        ? sessionData.classifierConfig.threshold()
+        : sessionData.classifierConfig.threshold,
+      consecutive_windows_to_fire: sessionData.classifierConfig.consecutive_windows_to_fire,
+      cooldown_ms: sessionData.classifierConfig.cooldown_ms,
+      sample_interval_ms: sessionData.classifierConfig.sample_interval_ms,
+      threshold_source: sessionData.classifierConfig.threshold_source,
+    } : null,
+
+    // ── Current task tracking ─────────────────────────────────────────────────────
+    currentTaskId:      sessionData.currentTaskId,
+
+    // ── Intervention events ─────────────────────────────────────────────────────
+    interventionEvents: sessionData.interventionEvents,
 
     // ── taskStimuli intentionally omitted (large HTML; only needed for replay)
     // The server merges it when _fetchCompiledSession() runs after a successful POST.

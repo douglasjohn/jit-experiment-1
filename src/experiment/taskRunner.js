@@ -21,8 +21,8 @@ import { sessionData } from './session';
 import { showScreen } from './router';
 import { showExperienceProbeOverlay } from '../UI/overlays';
 import brokenNavShopImage from '../assets/broken-nav.jpg';
-import { onConfusionFired } from '../intervention/classifier.js';
-import { CONDITIONS } from '../intervention/interventionEngine.js';
+import { onConfusionFired, onConfusionReFired } from '../intervention/classifier.js';
+import { CONDITIONS, selectSaLevelSecondOpinion, refreshPopulationPrior, exportBanditState } from '../intervention/interventionEngine.js';
 import { createLiveConfusionClassifier } from '../intervention/liveClassifier.js';
 import { getArms, SA_LEVELS, SA_LEVEL_FROM_NUMERIC } from './interventions.js';
 import { predictFromGaze, inferAoiType } from '../intervention/treeEnsembleClassifier.js';
@@ -782,6 +782,17 @@ export function initTaskRunner(gazeManager) {
   let autoAdvanceCountdown = null;
   let endOfTaskResolve = null;
   let attentionCheckFailures = {};
+  let liveClassifier = null;
+
+  // Pull the latest aggregated population prior before any bandit-driven
+  // condition needs it, so cold-start for THIS subject can be informed by
+  // everyone who came before (once the server aggregates and serves one),
+  // rather than only the hardcoded pilot base rates. Safe no-op if
+  // DATA_ENDPOINT isn't configured or the fetch fails.
+  if (CONFIG.INTERVENTION_CONDITION === CONDITIONS.SYSTEM_INITIATED ||
+      (CONFIG.INTERVENTION_CONDITION === CONDITIONS.USER_INITIATED && CONFIG.USER_INITIATED_BANDIT_ENABLED)) {
+    refreshPopulationPrior();
+  }
 
   // ── Probe subscriptions ───────────────────────────────────────────────────
   gazeManager.onProbe('overrun', async (payload) => {
@@ -956,6 +967,10 @@ export function initTaskRunner(gazeManager) {
       task_id: taskId,
       attempt,
       response: _getAttentionCheckResponse(),
+      config: {
+        intervention_condition: CONFIG.INTERVENTION_CONDITION,
+        auto_advance_enabled: CONFIG.AUTO_ADVANCE_ENABLED,
+      }
     });
 
     if (attempt >= limit) {
@@ -1151,64 +1166,178 @@ export function initTaskRunner(gazeManager) {
 
     // Expose confused button handler for user_initiated condition
     window._handleConfusedClick = async () => {
+      const confusedBtn = document.getElementById('confused-btn');
+      if (confusedBtn?.disabled) return; // intervention still showing, or a click is already in flight
+      if (confusedBtn) {
+        confusedBtn.disabled = true;
+        confusedBtn.style.opacity = '0.5';
+        confusedBtn.style.cursor = 'not-allowed';
+      }
       const subjectId = sessionData.participantId || sessionData.PROLIFIC_PID || 'participant-1';
+
+      // If a prior intervention is still inside its resolution window, this
+      // click is itself the "confusion re-triggered" signal for it.
+      onConfusionReFired({ subjectId });
       
-      // Use the tree ensemble classifier to predict AOI and SA level from recent gaze data
+      // Use the tree ensemble classifier to predict AOI and confusion from recent gaze data
       console.log('[confused-button] Running classifier prediction...');
-      const prediction = await predictFromGaze(2000);
+      const prediction = await predictFromGaze();
       
       if (!prediction) {
         console.error('[confused-button] Classifier prediction failed, using fallback');
-        // Fallback to simple heuristics if classifier fails
-        const aoiId = _getMostLookedAtAoi(2000);
-        const aoiType = _inferAoiTypeFromTask(currentTask?.id);
-        const saLevel = _inferSaLevelFromRecentBehavior();
         
-        _triggerConfusionEvent(subjectId, aoiType, aoiId, saLevel, 'user_initiated_button_fallback', 0.5);
+        const { aoiId, source } = _resolveConfusedAoi(null);
+        console.log('[confused-button] AOI resolved via:', source);
+        const heuristicSaLevel = SA_LEVEL_FROM_NUMERIC[_inferSaLevelFromRecentBehavior(0.5)];
+        const opinion = selectSaLevelSecondOpinion(subjectId, task.id, heuristicSaLevel, 0.5);
+        console.log('[confused-button] SA-level second opinion (fallback path):', opinion);
+
+        _triggerConfusionEvent(subjectId, aoiId, opinion.saLevel, 'user_initiated_button_fallback', 0.5);
         return;
       }
       
       console.log('[confused-button] Classifier prediction:', prediction);
       
-      // Use classifier predictions
-      const aoiId = prediction.aoiId;
-      const aoiType = inferAoiType(aoiId) || _inferAoiTypeFromTask(currentTask?.id);
-      const saLevelNumeric = prediction.saLevel;
-      const saLevel = SA_LEVEL_FROM_NUMERIC[saLevelNumeric] || saLevelNumeric;
-      const confidence = prediction.saConfidence;
+      const { aoiId, source: aoiSource } = _resolveConfusedAoi(prediction.aoiId);
+      console.log('[confused-button] AOI resolved via:', aoiSource);
+      
+      
+      const confidence = prediction.confusion.probability;
+      
+      // now informed by confusion confidence so SA2/SA3 actually get selected.
+      // Prefer the real trained SA-level model (train_sa_classifier /
+      // exported sa_classifier). Fall back to the hand-written heuristic
+      // only if that model wasn't exported/loaded (e.g. an older weights
+      // file, or too few confused+labeled windows at training time).
+      let classifierSaLevel;
+      let saLevelConfidence;
+      if (prediction.saLevel.source === 'trained_model') {
+        classifierSaLevel = SA_LEVEL_FROM_NUMERIC[prediction.saLevel.numeric];
+        saLevelConfidence = prediction.saLevel.confidence;
+        console.log('[confused-button] SA-level from trained model:', {
+          numeric: prediction.saLevel.numeric,
+          mapped: classifierSaLevel,
+          confidence: saLevelConfidence,
+          probabilities: prediction.saLevel.probabilities,
+        });
+      } else {
+        console.warn('[confused-button] sa_classifier not present in weights JSON -- falling back to heuristic SA-level guess.');
+        classifierSaLevel = SA_LEVEL_FROM_NUMERIC[_inferSaLevelFromRecentBehavior(confidence)];
+        saLevelConfidence = confidence;
+      }
+
+      // Bandit's classifier-vote weight should reflect how confident the
+      // ACTUAL SA-level prediction is, not confusion-probability used as a
+      // proxy for it, now that we have a real per-class probability.
+      const opinion = selectSaLevelSecondOpinion(subjectId, task.id, classifierSaLevel, saLevelConfidence);
+      const saLevel = opinion.saLevel;
+      console.log('[confused-button] SA-level second opinion:', {
+        classifierGuess: classifierSaLevel,
+        finalSaLevel: saLevel,
+        usedBandit: opinion.usedBandit,
+        classifierVoteWeight: opinion.classifierVoteWeight,
+        totalObservations: opinion.totalObservations,
+        votes: opinion.votes,
+      });
       
       // Log the button click with classifier predictions
       sessionData.events = sessionData.events || [];
       sessionData.events.push({
         type: 'confused_button_click',
         task_id: currentTask?.id || null,
-        aoi_type: aoiType,
         aoi_id: aoiId,
+        aoi_resolution_source: aoiSource,
+        classifier_sa_level_guess: classifierSaLevel,
+        classifier_sa_level_source: prediction.saLevel.source,
+        classifier_sa_level_probabilities: prediction.saLevel.probabilities,
         sa_level: saLevel,
-        sa_level_numeric: saLevelNumeric,
+        sa_level_bandit_used: opinion.usedBandit,
+        sa_level_classifier_vote_weight: opinion.classifierVoteWeight,
+        sa_level_bucket_n: opinion.totalObservations,
+        sa_level_votes: opinion.votes,
         classifier_confidence: confidence,
         confusion_probability: prediction.confusion.probability,
+        is_confused: prediction.confusion.isConfused,
         classifier_features: prediction.features,
         timestamp: Date.now(),
       });
       
-      console.log('[confused-button] Clicked - Task:', currentTask?.id, 'AOI:', aoiId, 'Type:', aoiType, 'SA:', saLevel, 'Confidence:', confidence);
+      console.log('[confused-button] Clicked - Task:', currentTask?.id, 'AOI:', aoiId, 'SA:', saLevel, 'Confusion Prob:', confidence);
       
       // Trigger the confusion event with classifier predictions
-      _triggerConfusionEvent(subjectId, aoiType, aoiId, saLevel, 'user_initiated_button', confidence);
+      _triggerConfusionEvent(subjectId, aoiId, saLevel, 'user_initiated_button', confidence);
     };
     
-    function _triggerConfusionEvent(subjectId, aoiType, aoiId, saLevel, triggeringFeature, confidence) {
+    function _triggerConfusionEvent(subjectId, aoiId, saLevel, triggeringFeature, confidence) {
       onConfusionFired({
         subjectId,
         taskId: currentTask?.id || null,
-        aoiType,
         aoiId,
         saLevel,
         triggeringFeature,
         confidence,
       });
     }
+
+    function _resolveConfusedAoi(classifierAoiId) {
+      if (classifierAoiId) return { aoiId: classifierAoiId, source: 'classifier_gaze' };
+
+      // 1) Widen the gaze window — the live classifier only looks at the
+      // last 3s; check the last 10s before giving up on gaze entirely.
+      const widerAoi = _getMostLookedAtAoi(10000);
+      if (widerAoi) return { aoiId: widerAoi, source: 'wider_gaze_window' };
+
+      // 2) Last AOI the user clicked on. Depends on click events carrying
+      // an aoi_id — if gazeManager doesn't log these, this step is a
+      // harmless no-op and we fall through.
+      const clickAoi = _getLastClickedAoi(30000);
+      if (clickAoi) return { aoiId: clickAoi, source: 'last_click' };
+
+      // 3) Last AOI the mouse was nearest to.
+      const mouseAoi = _getLastMouseNearAoi();
+      if (mouseAoi) return { aoiId: mouseAoi, source: 'mouse_proximity' };
+
+      console.warn('[confused-button] No AOI resolved from gaze, clicks, or mouse position.');
+      return { aoiId: null, source: 'none' };
+    }
+
+    function _getLastClickedAoi(windowMs) {
+      const now = Date.now();
+      const events = sessionData.events || [];
+      for (let i = events.length - 1; i >= 0; i--) {
+        const e = events[i];
+        if (e.type === 'click' && e.aoi_id && (now - e.timestamp) <= windowMs) {
+          return e.aoi_id;
+        }
+      }
+      return null;
+    }
+
+    function _getLastMouseNearAoi() {
+      const mouseEvents = sessionData.mouseEvents || [];
+      if (mouseEvents.length === 0) return null;
+      const last = mouseEvents[mouseEvents.length - 1];
+      // Mouse coords are stored normalized (0-1) elsewhere in this codebase
+      // (see treeEnsembleClassifier.js's gazeMouseDistanceStats, which
+      // compares gaze x/y directly against mouse x_norm/y_norm on the same
+      // scale) — convert to viewport pixels to compare against live DOM
+      // AOI bounding boxes.
+      const px = last.x_norm * window.innerWidth;
+      const py = last.y_norm * window.innerHeight;
+
+      let closestAoi = null;
+      let closestDist = Infinity;
+      document.querySelectorAll('#task-stimulus [data-aoi]').forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        const dist = Math.hypot(px - (rect.left + rect.width / 2), py - (rect.top + rect.height / 2));
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestAoi = el.dataset.aoi;
+        }
+      });
+      return closestAoi;
+    }
+
 
     function _getMostLookedAtAoi(windowMs) {
       const now = Date.now();
@@ -1287,16 +1416,15 @@ export function initTaskRunner(gazeManager) {
       return 'unknown';
     }
 
-    function _inferSaLevelFromRecentBehavior() {
-      // Simple heuristic: if user clicked the button, they're likely at SA level 2 or 3
-      // In a real implementation, this would use the live classifier's feature computation
+    function _inferSaLevelFromRecentBehavior(confidence = 0.5) {
+      // Blend AOI-revisit behavior with classifier confusion confidence so SA
+      // level isn't almost always 1. Higher confidence / more scanning ⇒ higher SA level.
       const recentGaze = sessionData.gazeLog?.slice(-20) || [];
       const aoiIds = recentGaze.map(g => g.aoi_id).filter(Boolean);
       const uniqueAois = new Set(aoiIds);
       
-      // If they've visited many different AOIs recently, likely higher confusion
-      if (uniqueAois.size > 5) return 3;
-      if (uniqueAois.size > 3) return 2;
+      if (uniqueAois.size > 5 || confidence >= 0.75) return 3;
+      if (uniqueAois.size > 2 || confidence >= 0.6) return 2;
       return 1;
     }
 
@@ -1444,6 +1572,10 @@ export function initTaskRunner(gazeManager) {
         _logEvent('attention-check-passed', {
           task_id: currentTask.id,
           response: _getAttentionCheckResponse(),
+          config: {
+            intervention_condition: CONFIG.INTERVENTION_CONDITION,
+            auto_advance_enabled: CONFIG.AUTO_ADVANCE_ENABLED,
+          }
         });
       }
 
@@ -1456,7 +1588,24 @@ export function initTaskRunner(gazeManager) {
   async function _beginCurrentTask() {
     if (!currentTask) return;
 
-    _logEvent('task-begin', { task_id: currentTask.id });
+    // Clear any existing timers from previous tasks
+    _clearTimers();
+
+    // Fetch classifier weights + subscribe to gaze here, not at experiment
+    // boot -- guarantees this happens after consent/calibration/env-check,
+    // never competing with WebEyeTrack's own model load. No-op after the
+    // first call (see _activateLiveClassifier's guard).
+    window.__jitActivateLiveClassifier?.();
+
+    _logEvent('task-begin', { 
+      task_id: currentTask.id,
+      config: {
+        auto_advance_enabled: CONFIG.AUTO_ADVANCE_ENABLED,
+        auto_advance_timeout: CONFIG.AUTO_ADVANCE_TIMEOUTS[currentTask.id] || 0,
+        intervention_condition: CONFIG.INTERVENTION_CONDITION,
+        expected_duration: CONFIG.TASK_EXPECTED_DURATIONS[currentTask.id] || null,
+      }
+    });
     currentTaskStart = performance.now();
     sessionData.currentTaskId = currentTask.id;
 
@@ -1478,6 +1627,30 @@ export function initTaskRunner(gazeManager) {
       gazeManager.setAOIs(currentTask.aois || []);
     });
 
+    // Initialize and start the live classifier
+   if (liveClassifier) {
+     liveClassifier.stop(); // Clean up if a previous instance is hanging
+   }
+
+   liveClassifier = createLiveConfusionClassifier({
+     onFire: (data) => {
+       // This is called when the classifier actually fires in system_initiated mode
+       onConfusionFired({
+         subjectId: data.subjectId,
+         taskId: data.taskId,
+         aoiId: data.aoiId,
+         saLevel: data.saLevel,
+         triggeringFeature: data.triggeringFeature,
+         confidence: data.confidence
+       });
+     },
+     getSubjectId: () => sessionData.participantId || sessionData.PROLIFIC_PID || 'participant-1'
+   });
+
+   if (liveClassifier && typeof liveClassifier.start === 'function') {
+     liveClassifier.start();
+   }
+
     if (CONFIG.PILOT_MODE) {
       _clearTimers();
       pilotTimeout = setTimeout(() => {
@@ -1488,6 +1661,7 @@ export function initTaskRunner(gazeManager) {
     // ── Auto-advance countdown ────────────────────────────────────────────────
     if (CONFIG.AUTO_ADVANCE_ENABLED && CONFIG.AUTO_ADVANCE_TIMEOUTS[currentTask.id] > 0) {
       const timeoutSecs = CONFIG.AUTO_ADVANCE_TIMEOUTS[currentTask.id];
+      console.log('[Auto-advance] Setting up timer for task', currentTask.id, 'with timeout', timeoutSecs + 's');
       let remainingSecs = timeoutSecs;
 
       const updateCountdown = () => {
@@ -1508,18 +1682,33 @@ export function initTaskRunner(gazeManager) {
 
       // Set up auto-submit
       autoAdvanceTimeout = setTimeout(() => {
+        console.log('[Auto-advance] Timer fired for task', currentTask.id);
         clearInterval(autoAdvanceCountdown);
         autoAdvanceCountdown = null;
         _submitResponse(currentTask.id, { responses: _getResponses() }, { autoSubmitted: true, autoAdvanced: true });
       }, timeoutSecs * 1000);
 
-      _logEvent('auto-advance-start', { timeout_secs: timeoutSecs });
+      _logEvent('auto-advance-start', {
+        timeout_secs: timeoutSecs,
+        config: {
+          auto_advance_enabled: CONFIG.AUTO_ADVANCE_ENABLED,
+          intervention_condition: CONFIG.INTERVENTION_CONDITION,
+        }
+      });
+    } else {
+      console.log('[Auto-advance] Not setting up timer for task', currentTask.id, 'AUTO_ADVANCE_ENABLED:', CONFIG.AUTO_ADVANCE_ENABLED, 'timeout:', CONFIG.AUTO_ADVANCE_TIMEOUTS[currentTask.id]);
     }
   }
 
   async function _submitResponse(taskId, responseData = {}, options = {}) {
     if (!currentTask || taskId !== currentTask.id) return;
     _clearTimers();
+
+    // Stop the background classifier
+   if (liveClassifier && typeof liveClassifier.stop === 'function') {
+     liveClassifier.stop();
+     liveClassifier = null;
+   }
 
     const metadata = {
       task_id:              currentTask.id,
@@ -1530,38 +1719,53 @@ export function initTaskRunner(gazeManager) {
       auto_advanced:        options.autoAdvanced === true,
       attention_check:      !!currentTask.attention_check,
       dwell_flagged_fields: _getDwellFlaggedFields(),
+      task_config: {
+        auto_advance_enabled: CONFIG.AUTO_ADVANCE_ENABLED,
+        auto_advance_timeout: CONFIG.AUTO_ADVANCE_TIMEOUTS[currentTask.id] || 0,
+        intervention_condition: CONFIG.INTERVENTION_CONDITION,
+        expected_duration: CONFIG.TASK_EXPECTED_DURATIONS[currentTask.id] || null,
+      },
     };
 
     sessionData.taskResponses = sessionData.taskResponses || [];
     sessionData.taskResponses.push(metadata);
     _logEvent('task-submit', { response_data: metadata });
 
-    const probePromise = new Promise(resolve => { endOfTaskResolve = resolve; });
+    let failsafe = null;
+    const probePromise = new Promise(resolve => {
+      endOfTaskResolve = resolve;
+      failsafe = setTimeout(() => {
+        if (typeof endOfTaskResolve === 'function') {
+          endOfTaskResolve();
+          endOfTaskResolve = null;
+        }
+      }, 30000);
+    });
+
     gazeManager.fireEndOfTaskProbe(currentTask.id);
 
-    const failsafe = setTimeout(() => {
-      if (typeof endOfTaskResolve === 'function') {
-        endOfTaskResolve();
-        endOfTaskResolve = null;
-        gazeManager.clearTaskState(currentTask.id);
-        currentTaskIndex += 1;
-        loadNextTask();
-      }
-    }, 45000);
-
     await probePromise;
-    clearTimeout(failsafe);
+    if (failsafe) clearTimeout(failsafe);
+
+    const completedTaskId = currentTask.id;
+    gazeManager.clearTaskState(completedTaskId);
+    currentTaskIndex += 1;
+    loadNextTask();
   }
 
   async function _handleOverrunProbe(payload) {
-    if (!currentTask) return;
+    if (!currentTask || payload.taskId !== currentTask.id) return;
+    const taskScreen = document.getElementById('screen-task');
+    if (!taskScreen || taskScreen.style.display === 'none') return;
     _logEvent('task-overrun-probe', { elapsedMs: payload.elapsedMs });
     await showExperienceProbeOverlay({ taskId: currentTask.id, triggerType: 'overrun', triggerTime: Date.now() });
-    showScreen('screen-task');
+    if (currentTask && payload.taskId === currentTask.id) {
+      showScreen('screen-task');
+    }
   }
 
   async function _handleEndOfTaskProbe(payload) {
-    if (!currentTask) return;
+    if (!currentTask || payload.taskId !== currentTask.id) return;
 
     await showExperienceProbeOverlay({ taskId: currentTask.id, triggerType: 'end-of-task', triggerTime: Date.now() });
 
@@ -1569,21 +1773,30 @@ export function initTaskRunner(gazeManager) {
       endOfTaskResolve();
       endOfTaskResolve = null;
     }
-
-    gazeManager.clearTaskState(currentTask.id);
-    currentTaskIndex += 1;
-    window.requestAnimationFrame(() => { loadNextTask(); });
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
   function loadNextTask() {
+    _clearTimers();
     if (currentTaskIndex >= tasks.length) {
+      currentTask = null;
+      sessionData.currentTaskId = null;
+      const subjectId = sessionData.participantId || sessionData.PROLIFIC_PID || 'participant-1';
+      sessionData.banditState = exportBanditState(subjectId);
       showScreen('screen-task-complete');
       return;
     }
     currentTask = tasks[currentTaskIndex];
     sessionData.currentTaskId = currentTask.id;
-    _logEvent('task-load', { task_id: currentTask.id });
+    _logEvent('task-load', { 
+      task_id: currentTask.id,
+      config: {
+        auto_advance_enabled: CONFIG.AUTO_ADVANCE_ENABLED,
+        auto_advance_timeout: CONFIG.AUTO_ADVANCE_TIMEOUTS[currentTask.id] || 0,
+        intervention_condition: CONFIG.INTERVENTION_CONDITION,
+        expected_duration: CONFIG.TASK_EXPECTED_DURATIONS[currentTask.id] || null,
+      }
+    });
     _renderInstructionScreen(currentTask);
     showScreen('screen-task-instruction');
   }

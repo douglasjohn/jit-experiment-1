@@ -9,7 +9,7 @@ let probeState = {
   resolveComplete: null
 };
 
-let interventionState = { timerId: null };
+let interventionState = { timerId: null, onDismiss: null };
 
 function getProbeOverlayRoot() {
   let root = document.getElementById(PROBE_OVERLAY_ID);
@@ -40,6 +40,9 @@ function clearInterventionOverlay() {
   }
   root.innerHTML = '';
   root.style.display = 'none';
+  const onDismiss = interventionState.onDismiss;
+  interventionState.onDismiss = null;
+  if (typeof onDismiss === 'function') onDismiss();
 }
 
 function hideInterventionOverlay() {
@@ -289,8 +292,9 @@ const RENDERERS = {
   },
   'example-toast': (root, payload, position) => {
     const pos = position || { bottom: '32px', left: '50%', transform: 'translateX(-50%)' };
+    const verticalStyle = pos.top ? `top:${pos.top};` : `bottom:${pos.bottom || '32px'};`;
     root.innerHTML = `
-      <div style="position:absolute; bottom:${pos.bottom || '32px'}; left:${pos.left}; transform:${pos.transform};
+      <div style="position:absolute; ${verticalStyle} left:${pos.left}; transform:${pos.transform};
         background:#111827; color:#fff; padding:10px 16px; border-radius:10px;
         font-family:system-ui,sans-serif; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
         ${payload.text}
@@ -298,8 +302,9 @@ const RENDERERS = {
   },
   'prediction-toast': (root, payload, position) => {
     const pos = position || { bottom: '32px', left: '50%', transform: 'translateX(-50%)' };
+    const verticalStyle = pos.top ? `top:${pos.top};` : `bottom:${pos.bottom || '32px'};`;
     root.innerHTML = `
-      <div style="position:absolute; bottom:${pos.bottom || '32px'}; left:${pos.left}; transform:${pos.transform};
+      <div style="position:absolute; ${verticalStyle} left:${pos.left}; transform:${pos.transform};
         background:#92400e; color:#fff; padding:10px 16px; border-radius:10px;
         font-family:system-ui,sans-serif; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
         ${payload.text}
@@ -321,13 +326,15 @@ const RENDERERS = {
   },
 };
 
-export function showIntervention(render, decision, position) {
+export function showIntervention(render, decision, position, onDismiss) {
   if (!render || !RENDERERS[render.type]) {
     console.warn('[overlays] unknown intervention render type:', render?.type);
+    if (typeof onDismiss === 'function') onDismiss();
     return;
   }
   const root = getInterventionOverlayRoot();
-  clearInterventionOverlay(); // clear any prior intervention first
+  clearInterventionOverlay(); // clear any prior intervention first (fires its own onDismiss)
+  interventionState.onDismiss = onDismiss || null;
   root.style.display = 'block';
   root.style.pointerEvents = render.type === 'example-modal' ? 'auto' : 'none';
 
